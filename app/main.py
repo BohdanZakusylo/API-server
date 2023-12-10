@@ -7,11 +7,11 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
-load_dotenv("./.env")
+load_dotenv(".env")
 
 SERVER = os.getenv("SERVER")
 DATABASE = os.getenv("DATABASE")
-USERNAME = os.getenv("USERNAME")
+USERNAME = os.getenv("USER")
 PASSWORD = os.getenv("PASSWORD")
 
 

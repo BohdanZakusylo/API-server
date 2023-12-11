@@ -2,6 +2,8 @@ import os
 import pyodbc
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query
+from app.token_generator.token_validation import encode_token, decode_token
+from datetime import datetime
 
 # main connection variables
 
@@ -13,7 +15,6 @@ app = FastAPI()
 # DATABASE = os.getenv("DATABASE")
 # USERNAME = os.getenv("USER")
 # PASSWORD = os.getenv("PASSWORD")
-PUBLIC_KEY = os.getenv("PUBLiC_KEY")
 
 
 # connectionString = f'DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={SERVER};DATABASE={DATABASE};UID={USERNAME};PWD={PASSWORD};TrustServerCertificate=yes'
@@ -28,4 +29,9 @@ async def main_page():
 
 @app.post("/login")
 async def login(name: str = Query(...), password: str = Query(...), email: str = Query(...)):
+    return {f"token: {encode_token(1, name)}"}
+
+@app.get("/get")
+async def get_props(token: str):
+    return decode_token(token)
 

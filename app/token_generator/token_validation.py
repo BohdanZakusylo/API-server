@@ -30,8 +30,9 @@ def decode_token(token: str):
     try:
         decoded_token = jwt.decode(token, public_key, algorithms=["RS256"])
     except jwt.exceptions.DecodeError:
-        return "token is inalid"
+        return "token is invalid"
     
     return decoded_token
+
 
 

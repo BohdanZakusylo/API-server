@@ -37,10 +37,10 @@ def decode_token(token: str):
              raise HTTPException(status_code=404, detail="token is expired")
         
     except jwt.exceptions.DecodeError:
-        return "token is invalid"
+        raise HTTPException(status_code=404, detail="token is invalid")
     
     except KeyError:
-        return "token is invalid"
+        raise HTTPException(status_code=404, detail="token is invalid")
 
     return decoded_token
 

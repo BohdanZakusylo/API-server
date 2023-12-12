@@ -58,11 +58,10 @@ async def get_data_by_id(entity: str, id: int, data_type: str, token : str = Que
     entity = entity.lower()
 
     #Start of the code that checks if the token is valid and if the data type is valid
-    
+
     correct_data.validate_data_type(data_type)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
+    decode_token(token)
 
     #End of the code that checks if the token is valid and if the data type is valid
 

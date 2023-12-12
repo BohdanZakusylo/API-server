@@ -56,7 +56,9 @@ async def login(email: str = Query(...), password: str = Query(...), nick_name: 
 @app.get("/select/{entity}/{id}/{data_type}")
 async def get_data_by_id(entity: str, id: int, data_type: str, token : str = Query(...)):
     entity = entity.lower()
+
     #Start of the code that checks if the token is valid and if the data type is valid
+    
     correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":

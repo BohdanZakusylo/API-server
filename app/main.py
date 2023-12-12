@@ -34,7 +34,7 @@ async def main_page():
     return {"message": "Hello World"}
 
 
-@app.post("/first-login")
+@app.post("/login")
 async def login(email: str = Query(...), password: str = Query(...), nick_name: str = Query(...), age: int = Query(...)):
     #TODO hash password
     try:
@@ -44,12 +44,12 @@ async def login(email: str = Query(...), password: str = Query(...), nick_name: 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Email should be unique")
 
-    if cursor.rowcount == 0:
+    if cursor.rowcount <= 0:
         raise HTTPException(status_code=404, detail="User not found")
 
     cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{email}';")
     id = cursor.fetchone()[0]
-
+    print(id)
     return encode_token(id, nick_name)
 
 
@@ -68,12 +68,14 @@ async def get_data_by_id(entity: str, id: int, data_type: str, token : str = Que
     rows = cursor.fetchall()
 
     result_list = []
-    counter = 0
-    for i in cursor.description:
-        result_list.append({i[0]: rows[0][counter]})
-        counter += 1
 
-    return correct_data.return_correct_format(result_list, data_type)
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = row[idx]
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, entity)
 
 
 @app.get("/select/{entity}/{data_type}")
@@ -88,11 +90,12 @@ async def get_data_by_id(entity: str, data_type: str, token : str = Query(...)):
 
     cursor.execute(f"SELECT * FROM [{entity}];")
     rows = cursor.fetchall()
-
     result_list = []
-    counter = 0
-    for i in cursor.description:
-        result_list.append({i[0]: rows[0][counter]})
-        counter += 1
 
-    return {f"{result_list}"}
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = row[idx]
+        result_list.append(user_dict)
+    
+    return correct_data.return_correct_format(result_list, data_type, entity)

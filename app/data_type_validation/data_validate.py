@@ -1,6 +1,8 @@
 import json
 import xmltodict
 from fastapi import HTTPException
+import xml.etree.ElementTree as ET
+
 
 ACCEPTED_DATA_TYPES = ["xml", "json"];
 
@@ -13,9 +15,15 @@ class Correct_Data:
         if data_type not in ACCEPTED_DATA_TYPES:
             raise HTTPException(status_code=404, detail="data type in the end is invalid")
 
-    def return_correct_format(self, data_dict, data_type):
+    def return_correct_format(self, data_dict, data_type, entity):
         if data_type == "xml":
-            xml = json.dumps(data_dict, ensure_ascii=False)
-            return xmltodict.unparse({"data": xml}, pretty=True)
+            root = ET.Element(entity + "s")  # Pluralize entity name for the root element
 
+            for user_data in data_dict:
+                user_element = ET.SubElement(root, entity)
+                for key, value in user_data.items():
+                    ET.SubElement(user_element, key).text = str(value)
+
+            return ET.tostring(root, encoding='unicode', method='xml')
+        
         return data_dict

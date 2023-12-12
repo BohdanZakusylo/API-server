@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from datetime import datetime
+from fastapi import HTTPException
 
 load_dotenv(".env")
 
@@ -31,11 +32,16 @@ def encode_token(id: int, name: str) -> str:
 def decode_token(token: str):
     try:
         decoded_token = jwt.decode(token, public_key, algorithms=["RS256"])
+
         if decoded_token["expiration_time"] < datetime.utcnow().timestamp():
-            return "token has expired"  
+             raise HTTPException(status_code=404, detail="token is expired")
+        
     except jwt.exceptions.DecodeError:
         return "token is invalid"
     
+    except KeyError:
+        return "token is invalid"
+
     return decoded_token
 
 

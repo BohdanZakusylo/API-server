@@ -34,7 +34,7 @@ async def main_page():
     return {"message": "Hello World"}
 
 
-@app.post("/login")
+@app.post("/registration")
 async def login(email: str = Query(...), password: str = Query(...), nick_name: str = Query(...), age: int = Query(...)):
     #TODO hash password
     try:
@@ -48,9 +48,8 @@ async def login(email: str = Query(...), password: str = Query(...), nick_name: 
         raise HTTPException(status_code=404, detail="User not found")
 
     cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{email}';")
-    id = cursor.fetchone()[0]
-    print(id)
-    return encode_token(id, nick_name)
+
+    return encode_token(cursor.fetchone()[0], nick_name)
 
 
 @app.get("/select/{entity}/{id}/{data_type}")
@@ -100,3 +99,25 @@ async def get_data_by_id(entity: str, data_type: str, token : str = Query(...)):
         result_list.append(user_dict)
     
     return correct_data.return_correct_format(result_list, data_type, entity)
+
+@app.get("/view/{view_name}/{data_type}")
+async def get_data_by_id(view_name: str, data_type: str, token : str = Query(...)):
+    view_name = view_name.lower()
+    #Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    #End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"SELECT * FROM [dbo].[{view_name}];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = row[idx]
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, view_name)

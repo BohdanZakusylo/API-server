@@ -1,5 +1,6 @@
 import os
 import pyodbc
+import hashlib
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, HTTPException
 from app.token_generator.token_validation import encode_token, decode_token
@@ -36,10 +37,11 @@ async def main_page():
 
 @app.post("/registration")
 async def login(email: str = Query(...), password: str = Query(...), nick_name: str = Query(...), age: int = Query(...)):
-    #TODO hash password
     try:
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @nick_name = ?, @age = ?;"""
-        cursor.execute(query, email, password, nick_name, age)
+        password_bytes = password.encode('utf-8')
+        hashed_password = hashlib.sha256(password_bytes).hexdigest()
+        cursor.execute(query, email, hashed_password, nick_name, age)
         conn.commit()
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Email should be unique")

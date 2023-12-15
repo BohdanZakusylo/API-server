@@ -4,7 +4,8 @@ from fastapi import HTTPException
 import xml.etree.ElementTree as ET
 
 
-ACCEPTED_DATA_TYPES = ["xml", "json"];
+ACCEPTED_DATA_TYPES = ["xml", "json"]
+ACCEPTED_MATERIAL_TYPE = ["Film", "Series", "Episode"]
 
 
 class Correct_Data:
@@ -27,3 +28,7 @@ class Correct_Data:
             return ET.tostring(root, encoding='unicode', method='xml')
         
         return data_dict
+
+    def validate_material_type(self, material_type):
+        if (material_type) not in ACCEPTED_MATERIAL_TYPE:
+            raise HTTPException(status_code=404, detail="Material type is invalid")

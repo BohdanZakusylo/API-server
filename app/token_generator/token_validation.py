@@ -21,7 +21,7 @@ with open(PATH_PUBLIC_KEY, "r") as file:
 def encode_token(id: int, name: str) -> str:
     dict_to_encode = {
         "id": id,
-        "name": name,
+        "username": name,
         "expiration_time": datetime.utcnow().timestamp() + 3600 
     }
 
@@ -43,6 +43,17 @@ def decode_token(token: str):
         raise HTTPException(status_code=404, detail="token is invalid")
 
     return decoded_token
+
+def encode_refresh_token(id: int, name: str) -> str:
+    dict_to_encode = {
+        "id": id,
+        "username": name,
+        "expiration_time": datetime.utcnow().timestamp() + 3600 * 24 * 365
+    }
+
+    encoded_token = jwt.encode(dict_to_encode, private_key, algorithm="RS256")
+
+    return encoded_token
 
 
 

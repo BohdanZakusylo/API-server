@@ -3,7 +3,7 @@ import pyodbc
 import hashlib
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, HTTPException
-from app.token_generator.token_validation import encode_token, decode_token, encode_refresh_token
+from app.token_generator.token_validation import encode_token, decode_token, encode_refresh_token, decode_refresh_token
 from app.data_type_validation.data_validate import Correct_Data
 from datetime import datetime
 from app.base_classes.login_info import LoginInfo
@@ -37,9 +37,6 @@ async def main_page():
 
 @app.post("/registration")
 async def login(login_info: LoginInfo):
-    print("-"*10)
-    print(login_info.username)
-    print("-"*10)
     try:
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
         password_bytes = login_info.password.encode('utf-8')
@@ -57,14 +54,27 @@ async def login(login_info: LoginInfo):
     id = cursor.fetchone()[0]
   
     return {
-        "token": encode_token(id, login_info.username),
-        "refresh_token": encode_refresh_token(id, login_info.username)
+        "token": encode_token(id, login_info.username)
+    }
+
+@app.get("/refresh-token")
+def get_refresh_token_by_token(token: str = Query(...)):
+    decoded_token = decode_token(token)
+    
+
+    cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
+
+    if cursor.fetchone() is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "refresh_token": encode_refresh_token(decoded_token["id"], decoded_token["username"]),
     }
 
 
 @app.get("/new-token")
 def get_token_by_refresh_token(refresh_token: str = Query(...)):
-    decoded_token = decode_token(refresh_token)
+    decoded_token = decode_refresh_token(refresh_token)
 
     cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
 

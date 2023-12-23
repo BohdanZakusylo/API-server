@@ -36,6 +36,9 @@ def decode_token(token: str):
         if decoded_token["expiration_time"] < datetime.utcnow().timestamp():
              raise HTTPException(status_code=404, detail="token is expired")
         
+        if "type" in decoded_token:
+            raise HTTPException(status_code=404, detail="resfresh token is not allowed")
+
     except jwt.exceptions.DecodeError:
         raise HTTPException(status_code=404, detail="token is invalid")
     
@@ -48,12 +51,28 @@ def encode_refresh_token(id: int, name: str) -> str:
     dict_to_encode = {
         "id": id,
         "username": name,
+        "type": "refresh",
         "expiration_time": datetime.utcnow().timestamp() + 3600 * 24 * 365
     }
 
     encoded_token = jwt.encode(dict_to_encode, private_key, algorithm="RS256")
 
     return encoded_token
+
+def decode_refresh_token(token: str):
+    try:
+        decoded_token = jwt.decode(token, public_key, algorithms=["RS256"])
+
+        if decoded_token["expiration_time"] < datetime.utcnow().timestamp():
+             raise HTTPException(status_code=404, detail="token is expired")
+
+    except jwt.exceptions.DecodeError:
+        raise HTTPException(status_code=404, detail="token is invalid")
+    
+    except KeyError:
+        raise HTTPException(status_code=404, detail="token is invalid")
+
+    return decoded_token    
 
 
 

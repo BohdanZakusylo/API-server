@@ -44,5 +44,16 @@ def decode_token(token: str):
 
     return decoded_token
 
+def encode_refresh_token(id: int, name: str) -> str:
+    dict_to_encode = {
+        "id": id,
+        "name": name,
+        "expiration_time": datetime.utcnow().timestamp() + 3600 * 24 * 365
+    }
+
+    encoded_token = jwt.encode(dict_to_encode, private_key, algorithm="RS256")
+
+    return encoded_token
+
 
 

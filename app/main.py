@@ -3,7 +3,7 @@ import pyodbc
 import hashlib
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, HTTPException
-from app.token_generator.token_validation import encode_token, decode_token
+from app.token_generator.token_validation import encode_token, decode_token, encode_refresh_token
 from app.data_type_validation.data_validate import Correct_Data
 from datetime import datetime
 from typing import Optional
@@ -51,7 +51,25 @@ async def login(email: str = Query(...), password: str = Query(...), nick_name: 
 
     cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{email}';")
 
-    return encode_token(cursor.fetchone()[0], nick_name)
+
+    return {
+        "token": encode_token(cursor.fetchone()[0], nick_name),
+        "refresh_token": encode_refresh_token(cursor.fetchone()[0], nick_name)
+    }
+
+
+@app.get("/new-token")
+def get_token_by_refresh_token(refresh_token: str):
+    decoded_token = decode_token(refresh_token)
+
+    cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
+
+    if cursor.fetchone() is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "token": encode_token(decoded_token["id"], decoded_token["name"]),
+    }
 
 
 @app.get("/select/{entity}/{id}/{data_type}")

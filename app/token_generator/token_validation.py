@@ -21,7 +21,7 @@ with open(PATH_PUBLIC_KEY, "r") as file:
 def encode_token(id: int, name: str) -> str:
     dict_to_encode = {
         "id": id,
-        "name": name,
+        "username": name,
         "expiration_time": datetime.utcnow().timestamp() + 3600 
     }
 
@@ -47,7 +47,7 @@ def decode_token(token: str):
 def encode_refresh_token(id: int, name: str) -> str:
     dict_to_encode = {
         "id": id,
-        "name": name,
+        "username": name,
         "expiration_time": datetime.utcnow().timestamp() + 3600 * 24 * 365
     }
 

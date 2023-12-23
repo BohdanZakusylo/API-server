@@ -37,11 +37,14 @@ async def main_page():
 
 @app.post("/registration")
 async def login(login_info: LoginInfo):
+    print("-"*10)
+    print(login_info.username)
+    print("-"*10)
     try:
-        query = """EXECUTE [InsertUser] @email = ?, @password = ?, @nick_name = ?, @age = ?;"""
+        query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
         password_bytes = login_info.password.encode('utf-8')
         hashed_password = hashlib.sha256(password_bytes).hexdigest()
-        cursor.execute(query, login_info.email, hashed_password, login_info.nick_name, login_info.age)
+        cursor.execute(query, login_info.email, hashed_password, login_info.username, login_info.age)
         conn.commit()
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Email should be unique")
@@ -51,10 +54,11 @@ async def login(login_info: LoginInfo):
 
     cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{login_info.email}';")
 
-
+    id = cursor.fetchone()[0]
+  
     return {
-        "token": encode_token(cursor.fetchone()[0], login_info.nick_name),
-        "refresh_token": encode_refresh_token(cursor.fetchone()[0], login_info.nick_name)
+        "token": encode_token(id, login_info.username),
+        "refresh_token": encode_refresh_token(id, login_info.username)
     }
 
 
@@ -68,7 +72,7 @@ def get_token_by_refresh_token(refresh_token: str = Query(...)):
         raise HTTPException(status_code=404, detail="User not found")
 
     return {
-        "token": encode_token(decoded_token["id"], decoded_token["name"]),
+        "token": encode_token(decoded_token["id"], decoded_token["username"]),
     }
 
 

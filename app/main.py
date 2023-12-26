@@ -39,12 +39,13 @@ async def main_page():
 async def login(login_info: LoginInfo):
     try:
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
-        password_bytes = login_info.password.encode('utf-8')
-        hashed_password = hashlib.sha256(password_bytes).hexdigest()
-        cursor.execute(query, login_info.email, hashed_password, login_info.username, login_info.age)
+        # password_bytes = login_info.password.encode('utf-8')
+        # hashed_password = hashlib.sha256(password_bytes).hexdigest()
+        cursor.execute(query, login_info.email, login_info.password, login_info.username, login_info.age)
         conn.commit()
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Email should be unique")
+
+    except pyodbc.IntegrityError as e:
+        raise HTTPException(status_code=400, detail=f"Email should be unique {e}")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=404, detail="User not found")

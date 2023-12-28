@@ -297,7 +297,6 @@ async def get_profile_by_id(id: int, data_type: str, token : str = Query(...)):
 
 @app.post("/profile")
 async def insert_profile(user_id: int = Query(...), age: int = Query(...), nick_name: str = Query(...), profile_picture: str = Query(None), token : str = Query(...)):
-    #TODO solve shit with image
     decode_token(token)
     
     try:
@@ -313,7 +312,6 @@ async def insert_profile(user_id: int = Query(...), age: int = Query(...), nick_
 
 @app.put("/profile/{id}")
 async def update_profile(id: int, user_id: int = Query(...), age: int = Query(...), nick_name: str = Query(...), profile_picture: str = Query(None), token : str = Query(...)):
-    #TODO solve shit with image
     decode_token(token)
 
     try: 

@@ -4,7 +4,7 @@ from fastapi import HTTPException
 import xml.etree.ElementTree as ET
 
 
-ACCEPTED_DATA_TYPES = ["xml", "json"];
+ACCEPTED_DATA_TYPES = ["xml", "json"]
 
 
 class Correct_Data:

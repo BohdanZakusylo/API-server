@@ -676,3 +676,453 @@ async def delete_episode(id: int, token : str = Query(...)):
     return {"message": "Episode deleted"}
 
 #end episode
+
+#Users start
+@app.get("/users/{data_type}")
+async def get_users(data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectUser;")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "user")
+
+@app.get("/users/{id}/{data_type}")
+async def get_users_by_id(id: int, data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectUserById @user_id = {id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "user")
+
+@app.put("/users/{id}")
+async def put_users(id: int, login_info: LoginInfo, token: str = Query(...)):
+    try:
+        query = """EXECUTE [UpdateUser] @user_id = ?, @email = ?, @password = ?, @username = ?, @age = ?;"""
+        cursor.execute(query, id, login_info.email, login_info.password, login_info.username, login_info.age)
+        conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Email should be unique")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{login_info.email}';")
+
+    id = cursor.fetchone()[0]
+
+    return {
+        "token": encode_token(id, login_info.username)
+    }
+
+@app.delete("/users/{id}")
+async def delete_users(id: int, token: str = Query(...)):
+    cursor.execute(f"EXECUTE DeleteUserById @user_id = {id};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return f"User with id = {id} deleted successfully."
+
+#Users end
+
+#Dubbing start
+
+@app.get("/dubbings/{data_type}")
+async def get_dubbings(data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectDubbing;")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "dubbing")
+
+@app.get("/dubbings/{dubbing_id}/{data_type}")
+async def get_dubbings_by_id(dubbing_id: int, data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectDubbingById @dubbing_id = {dubbing_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "dubbing")
+
+@app.post("/dubbings")
+async def post_dubbings(film_id: int, episode_id: int, language_id: int, dubbing_company: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE InsertDubbing @film_id = {film_id}, @episode_id = {episode_id}, @language_id = {language_id}, @dubbing_company = {dubbing_company};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return "Dubbing added successfully."
+
+@app.put("/dubbings/{dubbing_id}")
+async def put_dubbings(dubbing_id: int, film_id: int, episode_id: int, language_id: int, dubbing_company: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE UpdateDubbing @dubbing_id = {dubbing_id}, @film_id = {film_id}, @episode_id = {episode_id}, @language_id = {language_id}, @dubbing_company = {dubbing_company};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Dubbing with id = {dubbing_id} edited successfully."
+
+@app.delete("/dubbings/{dubbing_id}")
+async def delete_dubbings(dubbing_id: int, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE DeleteDubbing @dubbing_id = {dubbing_id};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Dubbing with id = {dubbing_id} deleted successfully."
+
+#Dubbing end
+
+#Series start
+
+@app.get("/series/{data_type}")
+async def get_series(data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectSeries;")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series")
+
+@app.get("/series/{series_id}/{data_type}")
+async def get_series_by_id(series_id: int, data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectSeriesById @series_id = {series_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series")
+
+@app.post("/series")
+async def post_series(title: str, episode_amount: int, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE InsertSeries @title = {title}, @episodeAmount = {episode_amount};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return "Series added successfully."
+
+@app.put("/series/{series_id}")
+async def put_series(series_id: int, title: str, episode_amount: int, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE UpdateSeries @series_id = {series_id}, @title = {title}, @episodeAmount = {episode_amount};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Series with id = {series_id} edited successfully."
+
+@app.delete("/series/{dubbing_id}")
+async def delete_series(series_id: int, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE DeleteSeries @series_id = {series_id};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Series with id = {series_id} deleted successfully."
+
+#Series end
+
+#Subscription start
+
+@app.get("/subscriptions/{data_type}")
+async def get_subscriptions(data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectSubscription;")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "subscription")
+
+@app.get("/subscriptions/{subscription_id}/{data_type}")
+async def get_subscriptions_by_id(subscription_id: int, data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectSubscriptionById @subscription_id = {subscription_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "subscription")
+
+@app.post("/subscriptions")
+async def post_subscriptions(user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE InsertSubscription @user_id = {user_id}, @type = {type}, @price = {price}, @start_date = {start_date}, @expiration_date = {expiration_date}, @is_discount = {is_discount};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return "Subscription added successfully."
+
+@app.put("/subscriptions/{subscription_id}")
+async def put_subscriptions(subscription_id: int, user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE UpdateSubscription @subscription_id = {subscription_id}, @user_id = {user_id}, @type = {type}, @price = {price}, @start_date = {start_date}, @expiration_date = {expiration_date}, @is_discount = {is_discount};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Subscription with id = {subscription_id} edited successfully."
+
+@app.delete("/subscriptions/{subscription_id}")
+async def delete_subscriptions(subscription_id: int, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE DeleteSubscription @subscription_id = {subscription_id};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Subscription with id = {subscription_id} deleted successfully."
+
+#Subscription end
+
+#Watchlist start
+
+@app.get("/watchlists/{data_type}")
+async def get_watchlists(data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectWatchlist_Item;")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "watchlist_item")
+
+@app.get("/watchlists/{watchlist_item_id}/{data_type}")
+async def get_watchlists_by_id(watchlist_item_id: int, data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectWatchlist_ItemById @watchlist_item_id = {watchlist_item_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "subscription")
+
+@app.post("/watchlists")
+async def post_series(profile_id: int, series_id: int, film_id: int, is_finished: bool, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE InsertWatchlist_Item @profile_id = {profile_id}, @series_id = {series_id}, @film_id = {film_id}, @is_finished = {is_finished};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return "Watchlist item added successfully."
+
+@app.put("/watchlists/{watchlist_item_id}")
+async def put_series(watchlist_item_id: int, user_id: int, profile_id: int, series_id: int, film_id: int, is_finished: bool, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE UpdateWatchlist_Item @watchlist_item_id = {watchlist_item_id}, @profile_id = {profile_id}, @series_id = {series_id}, @film_id = {film_id}, @is_finished = {is_finished};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Watchlist item with id = {watchlist_item_id} edited successfully."
+
+@app.delete("/watchlists/{watchlist_item_id}")
+async def delete_series(watchlist_item_id: int, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE DeleteWatchlist_Item @watchlist_item_id = {watchlist_item_id};")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Watchlist item with id = {watchlist_item_id} deleted successfully."
+
+#Watchlist end

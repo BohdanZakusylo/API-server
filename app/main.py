@@ -1,6 +1,5 @@
 import os
 import pyodbc
-import hashlib
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, HTTPException
 from app.token_generator.token_validation import encode_token, decode_token, encode_refresh_token, decode_refresh_token
@@ -40,9 +39,7 @@ async def main_page():
 async def login(login_info: LoginInfo):
     try:
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
-        password_bytes = login_info.password.encode('utf-8')
-        hashed_password = hashlib.sha256(password_bytes).hexdigest()
-        cursor.execute(query, login_info.email, hashed_password, login_info.username, login_info.age)
+        cursor.execute(query, login_info.email, login_info.password, login_info.username, login_info.age)
         conn.commit()
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Email should be unique")
@@ -721,18 +718,25 @@ async def get_users_by_id(id: int, data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "user")
 
 @app.put("/users/{id}")
-async def put_users(id: int, login_info: LoginInfo, token: str = Query(...)):
+async def put_users(id: int, language_id: int, is_activated: int, is_blocked: int, login_info: LoginInfo, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
     try:
-        query = """EXECUTE [UpdateUser] @user_id = ?, @email = ?, @password = ?, @username = ?, @age = ?;"""
-        cursor.execute(query, id, login_info.email, login_info.password, login_info.username, login_info.age)
+
+        query = """EXECUTE UpdateUser @user_id = ?, @username = ?, @language_id = ?, @password = ?, @is_activated = ?, @is_blocked = ?, @email = ?;"""
+        cursor.execute(query, id, login_info.username, language_id, login_info.password, is_activated, is_blocked, login_info.email)
         conn.commit()
+
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Email should be unique")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=404, detail="User not found")
 
-    cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{login_info.email}';")
+    cursor.execute(f"EXECUTE SelectUserById @user_id = {id};")
 
     id = cursor.fetchone()[0]
 
@@ -742,7 +746,22 @@ async def put_users(id: int, login_info: LoginInfo, token: str = Query(...)):
 
 @app.delete("/users/{id}")
 async def delete_users(id: int, token: str = Query(...)):
-    cursor.execute(f"EXECUTE DeleteUserById @user_id = {id};")
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    try:
+
+        query = """EXECUTE DeleteUser @user_id = ?;"""
+        cursor.execute(query, id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Email should be unique")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=404, detail="User not found")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=404, detail="User not found")
@@ -762,7 +781,9 @@ async def get_dubbings(data_type: str, token: str = Query(...)):
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE SelectDubbing;")
+    query = """EXECUTE SelectDubbing;"""
+    cursor.execute(query)
+
     rows = cursor.fetchall()
     result_list = []
 
@@ -783,7 +804,9 @@ async def get_dubbings_by_id(dubbing_id: int, data_type: str, token: str = Query
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE SelectDubbingById @dubbing_id = {dubbing_id};")
+    query = """EXECUTE SelectDubbingById @dubbing_id = ?;"""
+    cursor.execute(query, dubbing_id)
+
     rows = cursor.fetchall()
     result_list = []
 
@@ -796,15 +819,15 @@ async def get_dubbings_by_id(dubbing_id: int, data_type: str, token: str = Query
     return correct_data.return_correct_format(result_list, data_type, "dubbing")
 
 @app.post("/dubbings")
-async def post_dubbings(film_id: int, episode_id: int, language_id: int, dubbing_company: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+async def post_dubbings(film_id: int, language_id: int, dubbing_company: str, episode_id: Optional[int] = None, token: str = Query(...)):
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE InsertDubbing @film_id = {film_id}, @episode_id = {episode_id}, @language_id = {language_id}, @dubbing_company = {dubbing_company};")
+    query = """EXECUTE InsertDubbing @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
+    cursor.execute(query, film_id, episode_id, language_id, dubbing_company)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -813,14 +836,14 @@ async def post_dubbings(film_id: int, episode_id: int, language_id: int, dubbing
 
 @app.put("/dubbings/{dubbing_id}")
 async def put_dubbings(dubbing_id: int, film_id: int, episode_id: int, language_id: int, dubbing_company: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE UpdateDubbing @dubbing_id = {dubbing_id}, @film_id = {film_id}, @episode_id = {episode_id}, @language_id = {language_id}, @dubbing_company = {dubbing_company};")
+    query = """EXECUTE UpdateDubbing @dubbing_id = ?, @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
+    cursor.execute(query, dubbing_id, film_id, episode_id, language_id, dubbing_company)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -829,14 +852,14 @@ async def put_dubbings(dubbing_id: int, film_id: int, episode_id: int, language_
 
 @app.delete("/dubbings/{dubbing_id}")
 async def delete_dubbings(dubbing_id: int, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE DeleteDubbing @dubbing_id = {dubbing_id};")
+    query = """EXECUTE DeleteDubbing @dubbing_id = ?;"""
+    cursor.execute(query, dubbing_id)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -856,7 +879,9 @@ async def get_series(data_type: str, token: str = Query(...)):
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE SelectSeries;")
+    query = """EXECUTE SelectSeries;"""
+    cursor.execute(query)
+
     rows = cursor.fetchall()
     result_list = []
 
@@ -877,7 +902,9 @@ async def get_series_by_id(series_id: int, data_type: str, token: str = Query(..
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE SelectSeriesById @series_id = {series_id};")
+    query = """EXECUTE SelectSeriesById @series_id = ?;"""
+    cursor.execute(query, series_id)
+
     rows = cursor.fetchall()
     result_list = []
 
@@ -891,14 +918,14 @@ async def get_series_by_id(series_id: int, data_type: str, token: str = Query(..
 
 @app.post("/series")
 async def post_series(title: str, episode_amount: int, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE InsertSeries @title = {title}, @episodeAmount = {episode_amount};")
+    query = """EXECUTE InsertSeries @title = ?, @episodeAmount = ?;"""
+    cursor.execute(query, title, episode_amount)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -907,30 +934,30 @@ async def post_series(title: str, episode_amount: int, token: str = Query(...)):
 
 @app.put("/series/{series_id}")
 async def put_series(series_id: int, title: str, episode_amount: int, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE UpdateSeries @series_id = {series_id}, @title = {title}, @episodeAmount = {episode_amount};")
+    query = """EXECUTE UpdateSeries @series_id = ?, @title = ?, @episodeAmount = ?;"""
+    cursor.execute(query, series_id, title, episode_amount)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
 
     return f"Series with id = {series_id} edited successfully."
 
-@app.delete("/series/{dubbing_id}")
+@app.delete("/series/{series_id}")
 async def delete_series(series_id: int, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE DeleteSeries @series_id = {series_id};")
+    query = """EXECUTE DeleteSeries @series_id = ?;"""
+    cursor.execute(query, series_id)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -950,7 +977,9 @@ async def get_subscriptions(data_type: str, token: str = Query(...)):
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE SelectSubscription;")
+    query = """EXECUTE SelectSubscription;"""
+    cursor.execute(query)
+
     rows = cursor.fetchall()
     result_list = []
 
@@ -971,7 +1000,9 @@ async def get_subscriptions_by_id(subscription_id: int, data_type: str, token: s
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE SelectSubscriptionById @subscription_id = {subscription_id};")
+    query = """EXECUTE SelectSubscriptionById @subscription_id = ?;"""
+    cursor.execute(query, subscription_id)
+
     rows = cursor.fetchall()
     result_list = []
 
@@ -985,14 +1016,14 @@ async def get_subscriptions_by_id(subscription_id: int, data_type: str, token: s
 
 @app.post("/subscriptions")
 async def post_subscriptions(user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE InsertSubscription @user_id = {user_id}, @type = {type}, @price = {price}, @start_date = {start_date}, @expiration_date = {expiration_date}, @is_discount = {is_discount};")
+    query = """EXECUTE InsertSubscription @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
+    cursor.execute(query, user_id, type, price, start_date, expiration_date, is_discount)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1001,14 +1032,14 @@ async def post_subscriptions(user_id: int, type: str, price: float, start_date: 
 
 @app.put("/subscriptions/{subscription_id}")
 async def put_subscriptions(subscription_id: int, user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE UpdateSubscription @subscription_id = {subscription_id}, @user_id = {user_id}, @type = {type}, @price = {price}, @start_date = {start_date}, @expiration_date = {expiration_date}, @is_discount = {is_discount};")
+    query = """EXECUTE UpdateSubscription @subscription_id = ?, @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
+    cursor.execute(query, subscription_id, user_id, type, price, start_date, expiration_date, is_discount)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1017,14 +1048,14 @@ async def put_subscriptions(subscription_id: int, user_id: int, type: str, price
 
 @app.delete("/subscriptions/{subscription_id}")
 async def delete_subscriptions(subscription_id: int, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE DeleteSubscription @subscription_id = {subscription_id};")
+    query = """EXECUTE DeleteSubscription @subscription_id = ?;"""
+    cursor.execute(query, subscription_id)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1044,7 +1075,9 @@ async def get_watchlists(data_type: str, token: str = Query(...)):
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE SelectWatchlist_Item;")
+    query = """EXECUTE SelectWatchlist_Item;"""
+    cursor.execute(query)
+
     rows = cursor.fetchall()
     result_list = []
 
@@ -1065,7 +1098,9 @@ async def get_watchlists_by_id(watchlist_item_id: int, data_type: str, token: st
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE SelectWatchlist_ItemById @watchlist_item_id = {watchlist_item_id};")
+    query = """EXECUTE SelectWatchlist_ItemById @watchlist_item_id = ?;"""
+    cursor.execute(query, watchlist_item_id)
+
     rows = cursor.fetchall()
     result_list = []
 
@@ -1079,14 +1114,14 @@ async def get_watchlists_by_id(watchlist_item_id: int, data_type: str, token: st
 
 @app.post("/watchlists")
 async def post_series(profile_id: int, series_id: int, film_id: int, is_finished: bool, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE InsertWatchlist_Item @profile_id = {profile_id}, @series_id = {series_id}, @film_id = {film_id}, @is_finished = {is_finished};")
+    query = """EXECUTE InsertWatchlist_Item @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
+    cursor.execute(query, profile_id, series_id, film_id, is_finished)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1095,14 +1130,14 @@ async def post_series(profile_id: int, series_id: int, film_id: int, is_finished
 
 @app.put("/watchlists/{watchlist_item_id}")
 async def put_series(watchlist_item_id: int, user_id: int, profile_id: int, series_id: int, film_id: int, is_finished: bool, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE UpdateWatchlist_Item @watchlist_item_id = {watchlist_item_id}, @profile_id = {profile_id}, @series_id = {series_id}, @film_id = {film_id}, @is_finished = {is_finished};")
+    query = """EXECUTE UpdateWatchlist_Item @watchlist_item_id = ?, @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
+    cursor.execute(query, watchlist_item_id, profile_id, series_id, film_id, is_finished)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1111,14 +1146,14 @@ async def put_series(watchlist_item_id: int, user_id: int, profile_id: int, seri
 
 @app.delete("/watchlists/{watchlist_item_id}")
 async def delete_series(watchlist_item_id: int, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE DeleteWatchlist_Item @watchlist_item_id = {watchlist_item_id};")
+    query = """EXECUTE DeleteWatchlist_Item @watchlist_item_id = ?;"""
+    cursor.execute(query, watchlist_item_id)
+    conn.commit()
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")

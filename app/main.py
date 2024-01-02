@@ -676,3 +676,278 @@ async def delete_episode(id: int, token : str = Query(...)):
     return {"message": "Episode deleted"}
 
 #end episode
+
+#start episode-dubbing view
+
+@app.get("/episode-dubbing/{data_type}")
+async def get_view_episode_dubbing(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewEpisodeDubbing];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "episode-dubbing-view")
+
+@app.get("/episode-subtitle/{data_type}")
+async def get_view_episode_subtitle(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewEpisodeSubtitle];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "episode-subtitle-view")
+
+@app.get("/series-episodes/{data_type}")
+async def get_view_series_episodes(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewEpisodesPerSeries];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series-episodes-view")
+
+@app.get("/film-attribute/{data_type}")
+async def get_view_film_attribute(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewFilmAttribute];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "film-attribute-view")
+
+@app.get("/film-dubbing/{data_type}")
+async def get_view_film_dubbing(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewFilmDubbing];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "film-dubbing-view")
+
+@app.get("/film-quality/{data_type}")
+async def get_view_film_quality(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewFilmQuality];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "film-quality-view")
+
+@app.get("/film-subtitle/{data_type}")
+async def get_view_film_quality(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewFilmSubtitle];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "film-subtitle-view")
+
+@app.get("/profile-watchlist-film/{data_type}")
+async def get_view_profile_watchlist_film(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewProfileWatchlistFilm];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "profile-watchlist-film-view")
+
+@app.get("/profile-watchlist-series/{data_type}")
+async def get_view_profile_watchlist_series(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewProfileWatchlistSeries];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "profile-watchlist-series-view")
+
+# @app.get("/profile-watchlist-all/{data_type}")
+
+@app.get("/profile-preferred-attribute/{data_type}")
+async def get_view_profile_preferred_attribute(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewProfilePreferredAttribute];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "profile_preferred_attribute-view")
+
+@app.get("/series-genre/{data_type}")
+async def get_view_series_genre(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewSeriesGenre];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series-genre-view")
+
+@app.get("/user-information/{data_type}")
+async def get_view_user_information(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewUserInformation];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "user-information-view")
+
+#dbms error
+@app.get("/user-profile/{data_type}")
+async def get_view_user_profile(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewUserProfile];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "user-profile-view")
+
+@app.get("/episode-view/{data_type}")
+async def get_view_episode_view(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewEpisodeView];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "view-episode-view")
+
+@app.get("/film-view/{data_type}")
+async def get_view_film_view(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewFilmView];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "view-film-view")

@@ -819,11 +819,14 @@ async def get_dubbings_by_id(dubbing_id: int, data_type: str, token: str = Query
     return correct_data.return_correct_format(result_list, data_type, "dubbing")
 
 @app.post("/dubbings")
-async def post_dubbings(film_id: int, language_id: int, dubbing_company: str, episode_id: Optional[int] = None, token: str = Query(...)):
+async def post_dubbings(language_id: int = Query(...), dubbing_company: str = Query(...), film_id: int = Query(None), episode_id: int = Query(None), token: str = Query(...)):
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
     # End of the code that checks if the token is valid and if the data type is valid
+
+    if (film_id is None and episode_id is None) or (film_id is not None and episode_id is not None):
+        raise HTTPException(status_code=400, detail="Wrong input")
 
     query = """EXECUTE InsertDubbing @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
     cursor.execute(query, film_id, episode_id, language_id, dubbing_company)
@@ -835,7 +838,7 @@ async def post_dubbings(film_id: int, language_id: int, dubbing_company: str, ep
     return "Dubbing added successfully."
 
 @app.put("/dubbings/{dubbing_id}")
-async def put_dubbings(dubbing_id: int, film_id: int, episode_id: int, language_id: int, dubbing_company: str, token: str = Query(...)):
+async def put_dubbings(dubbing_id: int, language_id: int = Query(...), dubbing_company: str = Query(...), film_id: int = Query(None), episode_id: int = Query(None), token: str = Query(...)):
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
@@ -918,6 +921,8 @@ async def get_series_by_id(series_id: int, data_type: str, token: str = Query(..
 
 @app.post("/series")
 async def post_series(title: str, episode_amount: int, token: str = Query(...)):
+
+    print(title, episode_amount)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
@@ -1113,7 +1118,10 @@ async def get_watchlists_by_id(watchlist_item_id: int, data_type: str, token: st
     return correct_data.return_correct_format(result_list, data_type, "subscription")
 
 @app.post("/watchlists")
-async def post_series(profile_id: int, series_id: int, film_id: int, is_finished: bool, token: str = Query(...)):
+async def post_series(profile_id: int = Query(...), series_id: int = Query(None), film_id: int = Query(None), is_finished: bool = Query(...), token: str = Query(...)):
+
+    if (film_id is None and series_id is None) or (film_id is not None and series_id is not None):
+        raise HTTPException(status_code=400, detail="Wrong input")
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
@@ -1129,7 +1137,10 @@ async def post_series(profile_id: int, series_id: int, film_id: int, is_finished
     return "Watchlist item added successfully."
 
 @app.put("/watchlists/{watchlist_item_id}")
-async def put_series(watchlist_item_id: int, user_id: int, profile_id: int, series_id: int, film_id: int, is_finished: bool, token: str = Query(...)):
+async def put_series(watchlist_item_id: int, profile_id: int = Query(...), series_id: int = Query(None), film_id: int = Query(None), is_finished: bool = Query(...), token: str = Query(...)):
+
+    if (film_id is None and series_id is None) or (film_id is not None and series_id is not None):
+        raise HTTPException(status_code=400, detail="Wrong input")
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")

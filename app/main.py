@@ -2,8 +2,9 @@ import os
 import pyodbc
 import hashlib
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Depends
 from app.token_generator.token_validation import encode_token, decode_token, encode_refresh_token, decode_refresh_token
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.data_type_validation.data_validate import Correct_Data
 from datetime import datetime
 from app.base_classes.login_info import LoginInfo
@@ -12,6 +13,8 @@ from typing import Optional
 
 ACCEPTED_DATA_TYPES = ["xml", "json"];
 correct_data = Correct_Data()
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 app = FastAPI()
@@ -29,6 +32,7 @@ connectionString = f'DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={SERVER};DA
 conn = pyodbc.connect(connectionString)
 cursor = conn.cursor()
 
+print("Connection established")
 
 
 @app.get("/")
@@ -59,10 +63,9 @@ async def login(login_info: LoginInfo):
     }
 
 @app.get("/refresh-token")
-def get_refresh_token_by_token(token: str = Query(...)):
+def get_refresh_token_by_token(token: str = Depends(oauth2_scheme)):
     decoded_token = decode_token(token)
     
-
     cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
 
     if cursor.fetchone() is None:
@@ -74,7 +77,7 @@ def get_refresh_token_by_token(token: str = Query(...)):
 
 
 @app.get("/new-token")
-def get_token_by_refresh_token(refresh_token: str = Query(...)):
+def get_token_by_refresh_token(refresh_token: str = Depends(oauth2_scheme)):
     decoded_token = decode_refresh_token(refresh_token)
 
     cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
@@ -89,7 +92,7 @@ def get_token_by_refresh_token(refresh_token: str = Query(...)):
 #start atributes
 
 @app.get("/atributes/{data_type}")
-async def get_atributes(data_type: str, token : str = Query(...)):
+async def get_atributes(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -107,7 +110,7 @@ async def get_atributes(data_type: str, token : str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "atributes")
 
 @app.get("/atributes/{id}/{data_type}")
-async def get_atributes_by_id(id: int, data_type: str, token : str = Query(...)):
+async def get_atributes_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -125,7 +128,7 @@ async def get_atributes_by_id(id: int, data_type: str, token : str = Query(...))
     return correct_data.return_correct_format(result_list, data_type, "atributes")
 
 @app.post("/atributes")
-async def insert_atributes(attribute_type: str = Query(...), attribute_description: str = Query(...), token : str = Query(...)):
+async def insert_atributes(attribute_type: str = Query(...), attribute_description: str = Query(...), token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
     
@@ -140,7 +143,7 @@ async def insert_atributes(attribute_type: str = Query(...), attribute_descripti
     return {"message": "Atribute inserted"}
 
 @app.put("/atributes/{id}")
-async def update_attributes(id: int, attribute_type: str = Query(...), attribute_description: str = Query(...), token : str = Query(...)):
+async def update_attributes(id: int, attribute_type: str = Query(...), attribute_description: str = Query(...), token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
 
@@ -155,7 +158,7 @@ async def update_attributes(id: int, attribute_type: str = Query(...), attribute
     return {"message": "Atribute updated"}
 
 @app.delete("/atributes/{id}")
-async def delete_attributes(id: int, token : str = Query(...)):
+async def delete_attributes(id: int, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
 
@@ -174,7 +177,7 @@ async def delete_attributes(id: int, token : str = Query(...)):
 #start languages
 
 @app.get("/language/{data_type}")
-async def get_languages(data_type: str, token : str = Query(...)):
+async def get_languages(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -193,7 +196,7 @@ async def get_languages(data_type: str, token : str = Query(...)):
 
 
 @app.get("/language/{id}/{data_type}")
-async def get_languages_by_id(id: int, data_type: str, token : str = Query(...)):
+async def get_languages_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -211,7 +214,7 @@ async def get_languages_by_id(id: int, data_type: str, token : str = Query(...))
     return correct_data.return_correct_format(result_list, data_type, "languages")
 
 @app.post("/language")
-async def insert_languages(language_name: str = Query(...), token : str = Query(...)):
+async def insert_languages(language_name: str = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
         
     try:
@@ -225,7 +228,7 @@ async def insert_languages(language_name: str = Query(...), token : str = Query(
     return {"message": "Language inserted"}
 
 @app.put("/language/{id}")
-async def update_languages(id: int, language_name: str = Query(...), token : str = Query(...)):
+async def update_languages(id: int, language_name: str = Query(...), token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
 
@@ -240,7 +243,7 @@ async def update_languages(id: int, language_name: str = Query(...), token : str
     return {"message": "Language updated"}
 
 @app.delete("/language/{id}")
-async def delete_languages(id: int, token : str = Query(...)):
+async def delete_languages(id: int, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
 
@@ -259,7 +262,7 @@ async def delete_languages(id: int, token : str = Query(...)):
 #start profile
 
 @app.get("/profile/{data_type}")
-async def get_profile(data_type: str, token : str = Query(...)):
+async def get_profile(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -277,7 +280,7 @@ async def get_profile(data_type: str, token : str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "profile")
 
 @app.get("/profile/{id}/{data_type}")
-async def get_profile_by_id(id: int, data_type: str, token : str = Query(...)):
+async def get_profile_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -296,7 +299,7 @@ async def get_profile_by_id(id: int, data_type: str, token : str = Query(...)):
 
 
 @app.post("/profile")
-async def insert_profile(user_id: int = Query(...), age: int = Query(...), nick_name: str = Query(...), profile_picture: str = Query(None), token : str = Query(...)):
+async def insert_profile(user_id: int = Query(...), age: int = Query(...), nick_name: str = Query(...), profile_picture: str = Query(None), token: str = Depends(oauth2_scheme)):
     decode_token(token)
     
     try:
@@ -311,7 +314,7 @@ async def insert_profile(user_id: int = Query(...), age: int = Query(...), nick_
 
 
 @app.put("/profile/{id}")
-async def update_profile(id: int, user_id: int = Query(...), age: int = Query(...), nick_name: str = Query(...), profile_picture: str = Query(None), token : str = Query(...)):
+async def update_profile(id: int, user_id: int = Query(...), age: int = Query(...), nick_name: str = Query(...), profile_picture: str = Query(None), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try: 
@@ -325,7 +328,7 @@ async def update_profile(id: int, user_id: int = Query(...), age: int = Query(..
     return {"message": "Profile updated"}
 
 @app.delete("/profile/{id}")
-async def delete_profile(id: int, token : str = Query(...)):
+async def delete_profile(id: int, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -343,7 +346,7 @@ async def delete_profile(id: int, token : str = Query(...)):
 #start film
 
 @app.get("/film/{data_type}")
-async def get_film(data_type: str, token : str = Query(...)):
+async def get_film(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -362,7 +365,7 @@ async def get_film(data_type: str, token : str = Query(...)):
 
 
 @app.get("/film/{id}/{data_type}")
-async def get_film_by_id(id: int, data_type: str, token : str = Query(...)):
+async def get_film_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -383,7 +386,7 @@ async def get_film_by_id(id: int, data_type: str, token : str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "film")
 
 @app.post("/film")
-async def insert_film(title: str = Query(...), duration: str = Query(...), token : str = Query(...)):
+async def insert_film(title: str = Query(...), duration: str = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -397,7 +400,7 @@ async def insert_film(title: str = Query(...), duration: str = Query(...), token
     return {"message": "Film inserted"}
 
 @app.put("/film/{id}")
-async def update_film(id: int, title: str = Query(...), duration: str = Query(...), token : str = Query(...)):
+async def update_film(id: int, title: str = Query(...), duration: str = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try: 
@@ -412,7 +415,7 @@ async def update_film(id: int, title: str = Query(...), duration: str = Query(..
 
 
 @app.delete("/film/{id}")
-async def delete_film(id: int, token : str = Query(...)):
+async def delete_film(id: int, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -430,7 +433,7 @@ async def delete_film(id: int, token : str = Query(...)):
 #start quality
 
 @app.get("/quality/{data_type}")
-async def get_quality(data_type: str, token : str = Query(...)):
+async def get_quality(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
     
     decode_token(token)
@@ -448,7 +451,7 @@ async def get_quality(data_type: str, token : str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "quality")
 
 @app.get("/quality/{id}/{data_type}")
-async def get_quality_by_id(id: int, data_type: str, token : str = Query(...)):
+async def get_quality_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
     
     decode_token(token)
@@ -466,7 +469,7 @@ async def get_quality_by_id(id: int, data_type: str, token : str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "quality")
 
 @app.post("/quality")
-async def insert_quality(quality_type: str = Query(...), token : str = Query(...)):
+async def insert_quality(quality_type: str = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -481,7 +484,7 @@ async def insert_quality(quality_type: str = Query(...), token : str = Query(...
 
 
 @app.put("/quality/{id}")
-async def update_quality(id: int, quality_type: str = Query(...), token : str = Query(...)):
+async def update_quality(id: int, quality_type: str = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try: 
@@ -496,7 +499,7 @@ async def update_quality(id: int, quality_type: str = Query(...), token : str = 
 
 
 @app.delete("/quality/{id}")
-async def delete_quality(id: int, token : str = Query(...)):
+async def delete_quality(id: int, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -514,7 +517,7 @@ async def delete_quality(id: int, token : str = Query(...)):
 #start subtitle
 
 @app.get("/subtitle/{data_type}")
-async def get_subtitle(data_type: str, token : str = Query(...)):
+async def get_subtitle(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -532,7 +535,7 @@ async def get_subtitle(data_type: str, token : str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "subtitle")
 
 @app.get("/subtitle/{id}/{data_type}")
-async def get_subtitle_by_id(id: int, data_type: str, token : str = Query(...)):
+async def get_subtitle_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -550,7 +553,7 @@ async def get_subtitle_by_id(id: int, data_type: str, token : str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "subtitle")
 
 @app.post("/subtitle")
-async def insert_subtitle(film_id: int = Query(None), episode_id: int = Query(None), language_id: int = Query(...), token : str = Query(...)):
+async def insert_subtitle(film_id: int = Query(None), episode_id: int = Query(None), language_id: int = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -564,7 +567,7 @@ async def insert_subtitle(film_id: int = Query(None), episode_id: int = Query(No
     return {"message": "Subtitle inserted"}
 
 @app.put("/subtitle/{id}")
-async def update_subtitle(id: int, film_id: int = Query(...), episode_id: int = Query(...), language_id: int = Query(...), token : str = Query(...)):
+async def update_subtitle(id: int, film_id: int = Query(...), episode_id: int = Query(...), language_id: int = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try: 
@@ -579,7 +582,7 @@ async def update_subtitle(id: int, film_id: int = Query(...), episode_id: int = 
 
 
 @app.delete("/subtitle/{id}")
-async def delete_subtitle(id: int, token : str = Query(...)):
+async def delete_subtitle(id: int, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -597,7 +600,7 @@ async def delete_subtitle(id: int, token : str = Query(...)):
 #start episode
 
 @app.get("/episode/{data_type}")
-async def get_episode(data_type: str, token : str = Query(...)):
+async def get_episode(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -615,7 +618,7 @@ async def get_episode(data_type: str, token : str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "episode")
 
 @app.get("/episode/{id}/{data_type}")
-async def get_episode_by_id(id: int, data_type: str, token : str = Query(...)):
+async def get_episode_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -633,7 +636,7 @@ async def get_episode_by_id(id: int, data_type: str, token : str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "episode")
 
 @app.post("/episode")
-async def insert_episode(series_id: int = Query(...), title: str = Query(...), duration: str = Query(...), episode_number: int = Query(...), token : str = Query(...)):
+async def insert_episode(series_id: int = Query(...), title: str = Query(...), duration: str = Query(...), episode_number: int = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -648,7 +651,7 @@ async def insert_episode(series_id: int = Query(...), title: str = Query(...), d
 
 
 @app.put("/episode/{id}")
-async def update_episode(id: int, series_id: int = Query(...), title: str = Query(...), duration: str = Query(...), episode_number: int = Query(...), token : str = Query(...)):
+async def update_episode(id: int, series_id: int = Query(...), title: str = Query(...), duration: str = Query(...), episode_number: int = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try: 
@@ -662,7 +665,7 @@ async def update_episode(id: int, series_id: int = Query(...), title: str = Quer
     return {"message": "Episode updated"}
 
 @app.delete("/episode/{id}")
-async def delete_episode(id: int, token : str = Query(...)):
+async def delete_episode(id: int, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -680,7 +683,7 @@ async def delete_episode(id: int, token : str = Query(...)):
 #start episode-dubbing view
 
 @app.get("/episode-dubbing/{data_type}")
-async def get_view_episode_dubbing(data_type: str, token: str = Query(...)):
+async def get_view_episode_dubbing(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -698,7 +701,7 @@ async def get_view_episode_dubbing(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "episode-dubbing-view")
 
 @app.get("/episode-subtitle/{data_type}")
-async def get_view_episode_subtitle(data_type: str, token: str = Query(...)):
+async def get_view_episode_subtitle(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -716,7 +719,7 @@ async def get_view_episode_subtitle(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "episode-subtitle-view")
 
 @app.get("/series-episodes/{data_type}")
-async def get_view_series_episodes(data_type: str, token: str = Query(...)):
+async def get_view_series_episodes(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -734,7 +737,7 @@ async def get_view_series_episodes(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "series-episodes-view")
 
 @app.get("/film-attribute/{data_type}")
-async def get_view_film_attribute(data_type: str, token: str = Query(...)):
+async def get_view_film_attribute(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -752,7 +755,7 @@ async def get_view_film_attribute(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "film-attribute-view")
 
 @app.get("/film-dubbing/{data_type}")
-async def get_view_film_dubbing(data_type: str, token: str = Query(...)):
+async def get_view_film_dubbing(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -770,7 +773,7 @@ async def get_view_film_dubbing(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "film-dubbing-view")
 
 @app.get("/film-quality/{data_type}")
-async def get_view_film_quality(data_type: str, token: str = Query(...)):
+async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -788,7 +791,7 @@ async def get_view_film_quality(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "film-quality-view")
 
 @app.get("/film-subtitle/{data_type}")
-async def get_view_film_quality(data_type: str, token: str = Query(...)):
+async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -806,7 +809,7 @@ async def get_view_film_quality(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "film-subtitle-view")
 
 @app.get("/profile-watchlist-film/{data_type}")
-async def get_view_profile_watchlist_film(data_type: str, token: str = Query(...)):
+async def get_view_profile_watchlist_film(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -824,7 +827,7 @@ async def get_view_profile_watchlist_film(data_type: str, token: str = Query(...
     return correct_data.return_correct_format(result_list, data_type, "profile-watchlist-film-view")
 
 @app.get("/profile-watchlist-series/{data_type}")
-async def get_view_profile_watchlist_series(data_type: str, token: str = Query(...)):
+async def get_view_profile_watchlist_series(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -844,7 +847,7 @@ async def get_view_profile_watchlist_series(data_type: str, token: str = Query(.
 # @app.get("/profile-watchlist-all/{data_type}")
 
 @app.get("/profile-preferred-attribute/{data_type}")
-async def get_view_profile_preferred_attribute(data_type: str, token: str = Query(...)):
+async def get_view_profile_preferred_attribute(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -862,7 +865,7 @@ async def get_view_profile_preferred_attribute(data_type: str, token: str = Quer
     return correct_data.return_correct_format(result_list, data_type, "profile_preferred_attribute-view")
 
 @app.get("/series-genre/{data_type}")
-async def get_view_series_genre(data_type: str, token: str = Query(...)):
+async def get_view_series_genre(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -880,7 +883,7 @@ async def get_view_series_genre(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "series-genre-view")
 
 @app.get("/user-information/{data_type}")
-async def get_view_user_information(data_type: str, token: str = Query(...)):
+async def get_view_user_information(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -899,7 +902,7 @@ async def get_view_user_information(data_type: str, token: str = Query(...)):
 
 #dbms error
 @app.get("/user-profile/{data_type}")
-async def get_view_user_profile(data_type: str, token: str = Query(...)):
+async def get_view_user_profile(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -917,7 +920,7 @@ async def get_view_user_profile(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "user-profile-view")
 
 @app.get("/episode-view/{data_type}")
-async def get_view_episode_view(data_type: str, token: str = Query(...)):
+async def get_view_episode_view(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -935,7 +938,7 @@ async def get_view_episode_view(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "view-episode-view")
 
 @app.get("/film-view/{data_type}")
-async def get_view_film_view(data_type: str, token: str = Query(...)):
+async def get_view_film_view(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -951,3 +954,66 @@ async def get_view_film_view(data_type: str, token: str = Query(...)):
         result_list.append(user_dict)
 
     return correct_data.return_correct_format(result_list, data_type, "view-film-view")
+
+def end_scope():
+    pass
+
+#start view
+@app.get("/profile-film-overview/{view_id}/{profile_id}/{data_type}")
+def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str, film_id: int = Query(None), episode_id: int = Query(None), token: str = Depends(oauth2_scheme)):
+    id_to_paste = None
+
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    params_dict = {'film_id': film_id, 'episode_id': episode_id}
+
+    for name, value in params_dict.items():
+        if value is not None:
+            id_to_paste = value
+            variable_name = name
+            break
+    print(f"EXEC [SelectViewProfileFilmOverview] @view_id = {view_id}, @profile_id = {profile_id}, @variable_name = {variable_name}, @id_to_paste = {id_to_paste};")
+    cursor.execute(f"EXEC [SelectViewProfileFilmOverview] @view_id = {view_id}, @profile_id = {profile_id}, @variable_name = {variable_name}, @id_to_paste = {id_to_paste};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description): 
+            if column[0] == "date":
+                user_dict[column[0]] = str(row[idx])
+            else:
+                user_dict[column[0]] = row[idx]
+        result_list.append(user_dict)
+    
+    return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
+
+@app.get("/profile-film-overview/{data_type}")
+def get_view_profile_film_overview_all(data_type: str, token: str = Depends(oauth2_scheme)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectViewProfileFilmOverviewAll];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description): 
+            if column[0] == "date":
+                user_dict[column[0]] = str(row[idx])
+            else:
+                user_dict[column[0]] = row[idx]
+        result_list.append(user_dict)
+    
+    return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
+
+    
+    
+    
+
+
+    

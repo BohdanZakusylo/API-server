@@ -958,15 +958,6 @@ async def get_view_film_view(data_type: str, token: str = Depends(oauth2_scheme)
 
     return correct_data.return_correct_format(result_list, data_type, "view-film-view")
 
-
-def end_scope():
-    pass
-
-#start view
-@app.get("/profile-film-overview/{view_id}/{profile_id}/{data_type}")
-def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str, film_id: int = Query(None), episode_id: int = Query(None), token: str = Depends(oauth2_scheme)):
-    id_to_paste = None
-
 #start preferred attributes
 
 @app.get("/preferred-attribute/{data_type}")
@@ -1272,6 +1263,8 @@ async def delete_series_genre(series_id: int, attribute_id: int, token: str = De
 # end series genre
 
 #start film quality
+
+#TODO add an if statement ib sp to check if film_id or episode_id is null
 
 @app.get("/profile-film-overview/{view_id}/{profile_id}/{data_type}")
 def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str, film_id: int = Query(None), episode_id: int = Query(None), token: str = Depends(oauth2_scheme)):

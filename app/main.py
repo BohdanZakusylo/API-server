@@ -1,11 +1,14 @@
 import os
 import pyodbc
 import hashlib
+import requests
+import json
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, HTTPException, Depends
 from app.token_generator.token_validation import encode_token, decode_token, encode_refresh_token, decode_refresh_token
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.data_type_validation.data_validate import Correct_Data
+from bs4 import BeautifulSoup
 from datetime import datetime
 from app.base_classes.login_info import LoginInfo
 from typing import Optional
@@ -49,10 +52,10 @@ async def login(login_info: LoginInfo):
         cursor.execute(query, login_info.email, hashed_password, login_info.username, login_info.age)
         conn.commit()
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Email should be unique")
+        raise HTTPException(status_code=400, detail="Username and email should be unique")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Username and email should be unique")
 
     cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{login_info.email}';")
 
@@ -1012,8 +1015,24 @@ def get_view_profile_film_overview_all(data_type: str, token: str = Depends(oaut
     return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
 
     
-    
-    
+#axoloti
 
+@app.get("/cat-facts/")
+def get_axoloti_onfo(token: str = Depends(oauth2_scheme)):
+    data_facts = []
+    decode_token(token)
+
+    response = requests.get("https://cat-fact.herokuapp.com/facts")
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    text_content = soup.get_text()
+    data = json.loads(text_content)
+    for i in data:
+        data_facts.append({"fact": i["text"]})
+
+    data_facts.append({"status code": response.status_code})
+
+    return data_facts
 
     

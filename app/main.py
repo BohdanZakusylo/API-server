@@ -1288,7 +1288,7 @@ def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str
             id_to_paste = value
             variable_name = name
             break
-        
+
     cursor.execute(f"EXEC [SelectViewProfileFilmOverview] @view_id = {view_id}, @profile_id = {profile_id}, @variable_name = {variable_name}, @id_to_paste = {id_to_paste};")
     rows = cursor.fetchall()
     result_list = []

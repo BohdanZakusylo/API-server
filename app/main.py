@@ -14,7 +14,7 @@ from app.base_classes.login_info import LoginInfo
 from typing import Optional
 
 
-ACCEPTED_DATA_TYPES = ["xml", "json"];
+ACCEPTED_DATA_TYPES = ["xml", "json"]
 correct_data = Correct_Data()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -970,7 +970,7 @@ def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str
 #start preferred attributes
 
 @app.get("/preferred-attribute/{data_type}")
-async def get_preferred_attribute(data_type: str, token: str = Query(...)):
+async def get_preferred_attribute(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -988,7 +988,7 @@ async def get_preferred_attribute(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
 
 @app.get("/preferred-attribute/{profile_id}/{data_type}")
-async def get_preferred_attribute_by_profile_id(profile_id: int, data_type: str, token: str = Query(...)):
+async def get_preferred_attribute_by_profile_id(profile_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1009,7 +1009,7 @@ async def get_preferred_attribute_by_profile_id(profile_id: int, data_type: str,
     return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
 
 @app.post("/preferred-attribute")
-async def insert_preferred_attribute(profile_id: int = Query(...), attribute_id: int = Query(...), token: str = Query(...)):
+async def insert_preferred_attribute(profile_id: int = Query(...), attribute_id: int = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1023,7 +1023,7 @@ async def insert_preferred_attribute(profile_id: int = Query(...), attribute_id:
     return {"message": "Preferred attribute inserted"}
 
 @app.put("/preferred-attribute/{profile_id}-{attribute_id}")
-async def update_preferred_attributes(profile_id: int, attribute_id: int, new_profile_id: int = Query(...), new_attribute_id: str = Query(...), token: str = Query(...)):
+async def update_preferred_attributes(profile_id: int, attribute_id: int, new_profile_id: int = Query(...), new_attribute_id: str = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1037,7 +1037,7 @@ async def update_preferred_attributes(profile_id: int, attribute_id: int, new_pr
     return {"message": "Preferred attribute updated"}
 
 @app.delete("/preferred-attribute/{profile_id}-{attribute_id}")
-async def delete_preferred_attribute(profile_id: int, attribute_id: int, token: str = Query(...)):
+async def delete_preferred_attribute(profile_id: int, attribute_id: int, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1055,7 +1055,7 @@ async def delete_preferred_attribute(profile_id: int, attribute_id: int, token: 
 #start film genre
 
 @app.get("/film-genre/{data_type}")
-async def get_film_genre(data_type: str, token: str = Query(...)):
+async def get_film_genre(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1073,7 +1073,7 @@ async def get_film_genre(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "film-genre")
 
 @app.get("/film-genre/{film_id}/{data_type}")
-async def get_film_genre_by_film_id(film_id: int, data_type: str, token: str = Query(...)):
+async def get_film_genre_by_film_id(film_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1095,7 +1095,7 @@ async def get_film_genre_by_film_id(film_id: int, data_type: str, token: str = Q
 
 
 @app.get("/genre-film/{attribute_id}/{data_type}")
-async def get_film_genre_by_attribute_id(attribute_id: int, data_type: str, token: str = Query(...)):
+async def get_film_genre_by_attribute_id(attribute_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1116,7 +1116,7 @@ async def get_film_genre_by_attribute_id(attribute_id: int, data_type: str, toke
     return correct_data.return_correct_format(result_list, data_type, "film-genre")
 
 @app.post("/film-genre")
-async def insert_film_genre(film_id: int = Query(...), attribute_id: int = Query(...), token: str = Query(...)):
+async def insert_film_genre(film_id: int = Query(...), attribute_id: int = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1130,7 +1130,7 @@ async def insert_film_genre(film_id: int = Query(...), attribute_id: int = Query
     return {"message": "Film genre inserted"}
 
 @app.put("/film-genre/{film_id}-{attribute_id}")
-async def update_preferred_attributes(film_id: int, attribute_id: int, new_film_id: int = Query(...), new_attribute_id: str = Query(...), token: str = Query(...)):
+async def update_preferred_attributes(film_id: int, attribute_id: int, new_film_id: int = Query(...), new_attribute_id: str = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1144,7 +1144,7 @@ async def update_preferred_attributes(film_id: int, attribute_id: int, new_film_
     return {"message": "Film genre updated"}
 
 @app.delete("/film-genre/{film_id}-{attribute_id}")
-async def delete_preferred_attribute(film_id: int, attribute_id: int, token: str = Query(...)):
+async def delete_preferred_attribute(film_id: int, attribute_id: int, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1162,7 +1162,7 @@ async def delete_preferred_attribute(film_id: int, attribute_id: int, token: str
 #start series genre
 
 @app.get("/series-genre/{data_type}")
-async def get_series_genre(data_type: str, token: str = Query(...)):
+async def get_series_genre(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1181,7 +1181,7 @@ async def get_series_genre(data_type: str, token: str = Query(...)):
 
 
 @app.get("/series-genre/{series_id}/{data_type}")
-async def get_series_genre_by_series_id(series_id: int, data_type: str, token: str = Query(...)):
+async def get_series_genre_by_series_id(series_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1203,7 +1203,7 @@ async def get_series_genre_by_series_id(series_id: int, data_type: str, token: s
 
 
 @app.get("/genre-series/{attribute_id}/{data_type}")
-async def get_series_genre_by_attribute_id(attribute_id: int, data_type: str, token: str = Query(...)):
+async def get_series_genre_by_attribute_id(attribute_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1225,7 +1225,7 @@ async def get_series_genre_by_attribute_id(attribute_id: int, data_type: str, to
 
 
 @app.post("/series-genre")
-async def insert_series_genre(series_id: int = Query(...), attribute_id: int = Query(...), token: str = Query(...)):
+async def insert_series_genre(series_id: int = Query(...), attribute_id: int = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1241,7 +1241,7 @@ async def insert_series_genre(series_id: int = Query(...), attribute_id: int = Q
 
 @app.put("/series-genre/{series_id}-{attribute_id}")
 async def update_series_genre(series_id: int, attribute_id: int, new_series_id: int = Query(...),
-                                      new_attribute_id: str = Query(...), token: str = Query(...)):
+                                      new_attribute_id: str = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1256,7 +1256,7 @@ async def update_series_genre(series_id: int, attribute_id: int, new_series_id: 
 
 
 @app.delete("/series-genre/{series_id}-{attribute_id}")
-async def delete_series_genre(series_id: int, attribute_id: int, token: str = Query(...)):
+async def delete_series_genre(series_id: int, attribute_id: int, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1273,8 +1273,10 @@ async def delete_series_genre(series_id: int, attribute_id: int, token: str = Qu
 
 #start film quality
 
-@app.get("/film-quality/{data_type}")
-async def get_film_quality(data_type: str, token: str = Query(...)):
+@app.get("/profile-film-overview/{view_id}/{profile_id}/{data_type}")
+def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str, film_id: int = Query(None), episode_id: int = Query(None), token: str = Depends(oauth2_scheme)):
+    id_to_paste = None
+
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1286,7 +1288,7 @@ async def get_film_quality(data_type: str, token: str = Query(...)):
             id_to_paste = value
             variable_name = name
             break
-
+        
     cursor.execute(f"EXEC [SelectViewProfileFilmOverview] @view_id = {view_id}, @profile_id = {profile_id}, @variable_name = {variable_name}, @id_to_paste = {id_to_paste};")
     rows = cursor.fetchall()
     result_list = []
@@ -1299,7 +1301,7 @@ async def get_film_quality(data_type: str, token: str = Query(...)):
             else:
                 user_dict[column[0]] = row[idx]
         result_list.append(user_dict)
-    
+
     return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
 
 @app.get("/profile-film-overview/{data_type}")
@@ -1318,7 +1320,7 @@ def get_view_profile_film_overview_all(data_type: str, token: str = Depends(oaut
 
 
 @app.get("/film-quality/{film_id}/{data_type}")
-async def get_film_quality_by_film_id(film_id: int, data_type: str, token: str = Query(...)):
+async def get_film_quality_by_film_id(film_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1340,7 +1342,7 @@ async def get_film_quality_by_film_id(film_id: int, data_type: str, token: str =
 
 
 @app.get("/quality-film/{quality_id}/{data_type}")
-async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token: str = Query(...)):
+async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1351,16 +1353,16 @@ async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token:
 
     for row in rows:
         user_dict = {}
-        for idx, column in enumerate(cursor.description): 
+        for idx, column in enumerate(cursor.description):
             if column[0] == "date":
                 user_dict[column[0]] = str(row[idx])
             else:
                 user_dict[column[0]] = row[idx]
         result_list.append(user_dict)
-    
+
     return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
 
-    
+
 #cats
 
 @app.get("/cat-facts/")
@@ -1381,9 +1383,9 @@ async def get_axoloti_onfo(token: str = Depends(oauth2_scheme)):
 
     return data_facts
 
-    
+
 @app.get("/quality-film/{quality_id}/{data_type}")
-async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token: str = Query(...)):
+async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1405,7 +1407,7 @@ async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token:
 
 
 @app.post("/film-quality")
-async def insert_film_quality(film_id: int = Query(...), quality_id: int = Query(...), token: str = Query(...)):
+async def insert_film_quality(film_id: int = Query(...), quality_id: int = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1421,7 +1423,7 @@ async def insert_film_quality(film_id: int = Query(...), quality_id: int = Query
 
 @app.put("/film-quality/{film_id}-{quality_id}")
 async def update_film_quality(film_id: int, quality_id: int, new_film_id: int = Query(...),
-                                      new_quality_id: str = Query(...), token: str = Query(...)):
+                                      new_quality_id: str = Query(...), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
@@ -1436,7 +1438,7 @@ async def update_film_quality(film_id: int, quality_id: int, new_film_id: int = 
 
 
 @app.delete("/film-quality/{film_id}-{quality_id}")
-async def delete_film_quality(film_id: int, quality_id: int, token: str = Query(...)):
+async def delete_film_quality(film_id: int, quality_id: int, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:

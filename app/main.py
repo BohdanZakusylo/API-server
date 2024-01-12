@@ -958,6 +958,7 @@ async def get_view_film_view(data_type: str, token: str = Depends(oauth2_scheme)
 
     return correct_data.return_correct_format(result_list, data_type, "view-film-view")
 
+
 def end_scope():
     pass
 
@@ -966,6 +967,314 @@ def end_scope():
 def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str, film_id: int = Query(None), episode_id: int = Query(None), token: str = Depends(oauth2_scheme)):
     id_to_paste = None
 
+#start preferred attributes
+
+@app.get("/preferred-attribute/{data_type}")
+async def get_preferred_attribute(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectPreferredAttribute];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
+
+@app.get("/preferred-attribute/{profile_id}/{data_type}")
+async def get_preferred_attribute_by_profile_id(profile_id: int, data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectPreferredAttributeByProfileId] @profile_id = {profile_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
+
+@app.post("/preferred-attribute")
+async def insert_preferred_attribute(profile_id: int = Query(...), attribute_id: int = Query(...), token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [InsertPreferredAttribute] @profile_id = ?, @attribute_id = ?;"
+        cursor.execute(query, profile_id, attribute_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError as e:
+        raise HTTPException(status_code=400, detail=f"IntegrityError occurred: {e}")
+
+    return {"message": "Preferred attribute inserted"}
+
+@app.put("/preferred-attribute/{profile_id}-{attribute_id}")
+async def update_preferred_attributes(profile_id: int, attribute_id: int, new_profile_id: int = Query(...), new_attribute_id: str = Query(...), token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [UpdatePreferredAttribute] @profile_id = ?, @attribute_id = ?, @new_profile_id = ?, @new_attribute_id = ?;"
+        cursor.execute(query, profile_id, attribute_id, new_profile_id, new_attribute_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Preferred attributes naming is incorrect")
+
+    return {"message": "Preferred attribute updated"}
+
+@app.delete("/preferred-attribute/{profile_id}-{attribute_id}")
+async def delete_preferred_attribute(profile_id: int, attribute_id: int, token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [DeletePreferredAttribute] @profile_id = ?, @attribute_id = ?;"
+        cursor.execute(query, profile_id, attribute_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Preferred attributes naming is incorrect")
+
+    return {"message": "Preferred attribute deleted"}
+
+#end preferred attributes
+
+#start film genre
+
+@app.get("/film-genre/{data_type}")
+async def get_film_genre(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectFilmGenre];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+
+@app.get("/film-genre/{film_id}/{data_type}")
+async def get_film_genre_by_film_id(film_id: int, data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectFilmGenreByFilmId] @film_id = {film_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="Film not found")
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+
+
+@app.get("/genre-film/{attribute_id}/{data_type}")
+async def get_film_genre_by_attribute_id(attribute_id: int, data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectFilmGenreByAttributeId] @attribute_id = {attribute_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="Genre not found")
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+
+@app.post("/film-genre")
+async def insert_film_genre(film_id: int = Query(...), attribute_id: int = Query(...), token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [InsertFilmGenre] @film_id = ?, @attribute_id = ?;"
+        cursor.execute(query, film_id, attribute_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Invalid input. Input should be integer.")
+
+    return {"message": "Film genre inserted"}
+
+@app.put("/film-genre/{film_id}-{attribute_id}")
+async def update_preferred_attributes(film_id: int, attribute_id: int, new_film_id: int = Query(...), new_attribute_id: str = Query(...), token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [UpdateFilmGenre] @film_id = ?, @attribute_id = ?, @new_film_id = ?, @new_attribute_id = ?;"
+        cursor.execute(query, film_id, attribute_id, new_film_id, new_attribute_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Film genre naming is incorrect")
+
+    return {"message": "Film genre updated"}
+
+@app.delete("/film-genre/{film_id}-{attribute_id}")
+async def delete_preferred_attribute(film_id: int, attribute_id: int, token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [DeleteFilmGenre] @film_id = ?, @attribute_id = ?;"
+        cursor.execute(query, film_id, attribute_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Preferred attributes naming is incorrect")
+
+    return {"message": "Film genre deleted"}
+
+#end film genre
+
+#start series genre
+
+@app.get("/series-genre/{data_type}")
+async def get_series_genre(data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectSeriesGenre];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+
+
+@app.get("/series-genre/{series_id}/{data_type}")
+async def get_series_genre_by_series_id(series_id: int, data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectSeriesGenreBySeriesId] @series_id = {series_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="Series not found")
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+
+
+@app.get("/genre-series/{attribute_id}/{data_type}")
+async def get_series_genre_by_attribute_id(attribute_id: int, data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectSeriesGenreByAttributeId] @attribute_id = {attribute_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="Genre not found")
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+
+
+@app.post("/series-genre")
+async def insert_series_genre(series_id: int = Query(...), attribute_id: int = Query(...), token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [InsertSeriesGenre] @series_id = ?, @attribute_id = ?;"
+        cursor.execute(query, series_id, attribute_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Invalid input. Input should be integer.")
+
+    return {"message": "Series genre inserted"}
+
+
+@app.put("/series-genre/{series_id}-{attribute_id}")
+async def update_series_genre(series_id: int, attribute_id: int, new_series_id: int = Query(...),
+                                      new_attribute_id: str = Query(...), token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [UpdateSeriesGenre] @series_id = ?, @attribute_id = ?, @new_series_id = ?, @new_attribute_id = ?;"
+        cursor.execute(query, series_id, attribute_id, new_series_id, new_attribute_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Series genre naming is incorrect")
+
+    return {"message": "Series genre updated"}
+
+
+@app.delete("/series-genre/{series_id}-{attribute_id}")
+async def delete_series_genre(series_id: int, attribute_id: int, token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [DeleteSeriesGenre] @series_id = ?, @attribute_id = ?;"
+        cursor.execute(query, series_id, attribute_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Series genre naming is incorrect")
+
+    return {"message": "Series genre deleted"}
+
+# end series genre
+
+#start film quality
+
+@app.get("/film-quality/{data_type}")
+async def get_film_quality(data_type: str, token: str = Query(...)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -977,7 +1286,7 @@ def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str
             id_to_paste = value
             variable_name = name
             break
-    print(f"EXEC [SelectViewProfileFilmOverview] @view_id = {view_id}, @profile_id = {profile_id}, @variable_name = {variable_name}, @id_to_paste = {id_to_paste};")
+
     cursor.execute(f"EXEC [SelectViewProfileFilmOverview] @view_id = {view_id}, @profile_id = {profile_id}, @variable_name = {variable_name}, @id_to_paste = {id_to_paste};")
     rows = cursor.fetchall()
     result_list = []
@@ -995,6 +1304,43 @@ def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str
 
 @app.get("/profile-film-overview/{data_type}")
 def get_view_profile_film_overview_all(data_type: str, token: str = Depends(oauth2_scheme)):
+    cursor.execute(f"EXEC [SelectFilmQuality];")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "film-quality")
+
+
+@app.get("/film-quality/{film_id}/{data_type}")
+async def get_film_quality_by_film_id(film_id: int, data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
+    cursor.execute(f"EXEC [SelectFilmQualityByFilmId] @film_id = {film_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="Film not found")
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+
+
+@app.get("/quality-film/{quality_id}/{data_type}")
+async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token: str = Query(...)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -1036,3 +1382,65 @@ def get_axoloti_onfo(token: str = Depends(oauth2_scheme)):
     return data_facts
 
     
+    cursor.execute(f"EXEC [SelectFilmQualityByQualityId] @quality_id = {quality_id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="Genre not found")
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+
+
+@app.post("/film-quality")
+async def insert_film_quality(film_id: int = Query(...), quality_id: int = Query(...), token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [InsertFilmQuality] @film_id = ?, @quality_id = ?;"
+        cursor.execute(query, film_id, quality_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Invalid input. Input should be integer.")
+
+    return {"message": "Film quality inserted"}
+
+
+@app.put("/film-quality/{film_id}-{quality_id}")
+async def update_film_quality(film_id: int, quality_id: int, new_film_id: int = Query(...),
+                                      new_quality_id: str = Query(...), token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [UpdateFilmQuality] @film_id = ?, @quality_id = ?, @new_film_id = ?, @new_quality_id = ?;"
+        cursor.execute(query, film_id, quality_id, new_film_id, new_quality_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Film quality naming is incorrect")
+
+    return {"message:" "Film quality updated"}
+
+
+@app.delete("/film-quality/{film_id}-{quality_id}")
+async def delete_film_quality(film_id: int, quality_id: int, token: str = Query(...)):
+    decode_token(token)
+
+    try:
+        query = f"EXEC [DeleteFilmQuality] @film_id = ?, @quality_id = ?;"
+        cursor.execute(query, film_id, quality_id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Film quality naming is incorrect")
+
+    return {"message": "Film quality deleted"}
+
+# end film quality

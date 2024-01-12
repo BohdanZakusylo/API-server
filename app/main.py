@@ -1361,10 +1361,10 @@ async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token:
     return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
 
     
-#axoloti
+#cats
 
 @app.get("/cat-facts/")
-def get_axoloti_onfo(token: str = Depends(oauth2_scheme)):
+async def get_axoloti_onfo(token: str = Depends(oauth2_scheme)):
     data_facts = []
     decode_token(token)
 
@@ -1382,6 +1382,12 @@ def get_axoloti_onfo(token: str = Depends(oauth2_scheme)):
     return data_facts
 
     
+@app.get("/quality-film/{quality_id}/{data_type}")
+async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token: str = Query(...)):
+    correct_data.validate_data_type(data_type)
+
+    decode_token(token)
+
     cursor.execute(f"EXEC [SelectFilmQualityByQualityId] @quality_id = {quality_id};")
     rows = cursor.fetchall()
     result_list = []

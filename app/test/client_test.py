@@ -9,15 +9,30 @@ def client():
 
 
 def test_registration(client):
-    response = client.post(
-        "/registration",
+    new_unique_user = client.post(
+        "http://127.0.0.1:8000/registration",
+
         json={
-            "email": "3d333dtffffffarnnfffo@gmail.com",
+            "email": "Not@gmail.com",
             "password": "1f2d",
-            "username": "dffddvfffff3dff333dd",
+            "username": "Why",
             "age": 25
         },
     )
 
-    assert response.status_code == 200
-    assert "token" in response.json()
+    assert new_unique_user.status_code == 200
+    assert "token" in new_unique_user.json()
+
+    old_user = client.post(
+        "http://127.0.0.1:8000/registration",
+
+        json={
+            "email": "Ivanl@gmail.com",
+            "password": "1f2d",
+            "username": "Ivan",
+            "age": 25
+        }, 
+
+    )
+
+    assert old_user.status_code == 404

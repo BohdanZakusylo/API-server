@@ -10,7 +10,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.data_type_validation.data_validate import Correct_Data
 from bs4 import BeautifulSoup
 from datetime import datetime
-from app.base_classes.login_info import LoginInfo
+from app.base_classes.base_classes import BaseModels
 from typing import Optional
 
 
@@ -44,7 +44,7 @@ async def main_page():
 
 
 @app.post("/registration")
-async def login(login_info: LoginInfo):
+async def login(login_info: BaseModels.LoginInfo):
     try:
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
         password_bytes = login_info.password.encode('utf-8')
@@ -92,10 +92,10 @@ def get_token_by_refresh_token(refresh_token: str = Depends(oauth2_scheme)):
         "token": encode_token(decoded_token["id"], decoded_token["username"]),
     }
 
-#start atributes
+#start attributes
 
-@app.get("/atributes/{data_type}")
-async def get_atributes(data_type: str, token: str = Depends(oauth2_scheme)):
+@app.get("/attributes/{data_type}")
+async def get_attributes(data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -110,10 +110,10 @@ async def get_atributes(data_type: str, token: str = Depends(oauth2_scheme)):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
 
-    return correct_data.return_correct_format(result_list, data_type, "atributes")
+    return correct_data.return_correct_format(result_list, data_type, "attributes")
 
-@app.get("/atributes/{id}/{data_type}")
-async def get_atributes_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
+@app.get("/attributes/{id}/{data_type}")
+async def get_attributes_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
     correct_data.validate_data_type(data_type)
 
     decode_token(token)
@@ -128,16 +128,16 @@ async def get_atributes_by_id(id: int, data_type: str, token: str = Depends(oaut
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
 
-    return correct_data.return_correct_format(result_list, data_type, "atributes")
+    return correct_data.return_correct_format(result_list, data_type, "attributes")
 
-@app.post("/atributes")
-async def insert_atributes(attribute_type: str = Query(...), attribute_description: str = Query(...), token: str = Depends(oauth2_scheme)):
+@app.post("/attributes")
+async def insert_atributes(attribute_data: BaseModels.AttributesInfo, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
     
     try:
         query = f"EXEC [InsertAttribute] @attribute_type = ?, @attribute_description = ?;"
-        cursor.execute(query, attribute_type, attribute_description)
+        cursor.execute(query, attribute_data.attribute_type, attribute_data.attribute_description)
         conn.commit()
     
     except pyodbc.IntegrityError:
@@ -145,14 +145,14 @@ async def insert_atributes(attribute_type: str = Query(...), attribute_descripti
     
     return {"message": "Atribute inserted"}
 
-@app.put("/atributes/{id}")
-async def update_attributes(id: int, attribute_type: str = Query(...), attribute_description: str = Query(...), token: str = Depends(oauth2_scheme)):
+@app.put("/attributes/{id}")
+async def update_attributes(id: int, attribute_info: BaseModels.AttributesInfo, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
 
     try: 
         query = f"EXEC [UpdateAttribute] @attribute_id = ?, @attribute_type = ?, @attribute_description = ?;"
-        cursor.execute(query, id, attribute_type, attribute_description)
+        cursor.execute(query, id, attribute_info.attribute_type, attribute_info.attribute_description)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -217,12 +217,12 @@ async def get_languages_by_id(id: int, data_type: str, token: str = Depends(oaut
     return correct_data.return_correct_format(result_list, data_type, "languages")
 
 @app.post("/language")
-async def insert_languages(language_name: str = Query(...), token: str = Depends(oauth2_scheme)):
+async def insert_languages(language_info: BaseModels.LanguageInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
         
     try:
         query = f"EXEC [InsertLanguage] @language_name = ?;"
-        cursor.execute(query, language_name)
+        cursor.execute(query, language_info.language_name)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -231,13 +231,13 @@ async def insert_languages(language_name: str = Query(...), token: str = Depends
     return {"message": "Language inserted"}
 
 @app.put("/language/{id}")
-async def update_languages(id: int, language_name: str = Query(...), token: str = Depends(oauth2_scheme)):
+async def update_languages(id: int, language_info: BaseModels.LanguageInfo, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
 
     try: 
         query = f"EXEC [UpdateLanguage] @language_id = ?, @language_name = ?;"
-        cursor.execute(query, id, language_name)
+        cursor.execute(query, id, language_info.language_name)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -302,12 +302,12 @@ async def get_profile_by_id(id: int, data_type: str, token: str = Depends(oauth2
 
 
 @app.post("/profile")
-async def insert_profile(user_id: int = Query(...), age: int = Query(...), nick_name: str = Query(...), profile_picture: str = Query(None), token: str = Depends(oauth2_scheme)):
+async def insert_profile(profile_info: BaseModels.ProfileInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
-    
+    print(profile_info.user_id, profile_info.age, profile_info.nick_name, profile_info.profile_picture)
     try:
         query = f"EXEC [InsertProfile] @user_id = ?, @age = ?, @nick_name = ?, @profile_picture = ?;"
-        cursor.execute(query, user_id, age, nick_name, profile_picture)
+        cursor.execute(query, profile_info.user_id, profile_info.age, profile_info.nick_name, profile_info.profile_picture)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -317,12 +317,12 @@ async def insert_profile(user_id: int = Query(...), age: int = Query(...), nick_
 
 
 @app.put("/profile/{id}")
-async def update_profile(id: int, user_id: int = Query(...), age: int = Query(...), nick_name: str = Query(...), profile_picture: str = Query(None), token: str = Depends(oauth2_scheme)):
+async def update_profile(id: int, profile_info: BaseModels.ProfileInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try: 
         query = f"EXEC [UpdateProfile] @profile_id = ?, @user_id = ?, @age = ?, @nick_name = ?, @profile_picture = ?;"
-        cursor.execute(query, id, user_id, age, nick_name, profile_picture)
+        cursor.execute(query, id, profile_info.user_id, profile_info.age, profile_info.nick_name, profile_info.profile_picture)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -389,12 +389,12 @@ async def get_film_by_id(id: int, data_type: str, token: str = Depends(oauth2_sc
     return correct_data.return_correct_format(result_list, data_type, "film")
 
 @app.post("/film")
-async def insert_film(title: str = Query(...), duration: str = Query(...), token: str = Depends(oauth2_scheme)):
+async def insert_film(film_info: BaseModels.FilmInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [InsertFilm] @title = ?, @duration = ?;"
-        cursor.execute(query, title, duration)
+        cursor.execute(query, film_info.title, film_info.duration)
         conn.commit()
     
     except pyodbc.IntegrityError:
@@ -403,12 +403,12 @@ async def insert_film(title: str = Query(...), duration: str = Query(...), token
     return {"message": "Film inserted"}
 
 @app.put("/film/{id}")
-async def update_film(id: int, title: str = Query(...), duration: str = Query(...), token: str = Depends(oauth2_scheme)):
+async def update_film(id: int, film_info: BaseModels.FilmInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try: 
         query = f"EXEC [UpdateFilm] @film_id = ?, @title = ?, @duration = ?;"
-        cursor.execute(query, id, title, duration)
+        cursor.execute(query, id, film_info.title, film_info.duration)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -472,12 +472,12 @@ async def get_quality_by_id(id: int, data_type: str, token: str = Depends(oauth2
     return correct_data.return_correct_format(result_list, data_type, "quality")
 
 @app.post("/quality")
-async def insert_quality(quality_type: str = Query(...), token: str = Depends(oauth2_scheme)):
+async def insert_quality(quality_info: BaseModels.QualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [InsertQuality] @quality_type = ?;"
-        cursor.execute(query, quality_type)
+        cursor.execute(query, quality_info.quality_type)
         conn.commit()
     
     except pyodbc.IntegrityError:
@@ -487,12 +487,12 @@ async def insert_quality(quality_type: str = Query(...), token: str = Depends(oa
 
 
 @app.put("/quality/{id}")
-async def update_quality(id: int, quality_type: str = Query(...), token: str = Depends(oauth2_scheme)):
+async def update_quality(id: int, quality_info: BaseModels.QualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try: 
         query = f"EXEC [UpdateQuality] @quality_id = ?, @quality_type = ?;"
-        cursor.execute(query, id, quality_type)
+        cursor.execute(query, id, quality_info.quality_type)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -556,12 +556,12 @@ async def get_subtitle_by_id(id: int, data_type: str, token: str = Depends(oauth
     return correct_data.return_correct_format(result_list, data_type, "subtitle")
 
 @app.post("/subtitle")
-async def insert_subtitle(film_id: int = Query(None), episode_id: int = Query(None), language_id: int = Query(...), token: str = Depends(oauth2_scheme)):
+async def insert_subtitle(subtitle_info: BaseModels.SubtitleInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [InsertSubtitle] @film_id = ?, @episode_id = ?, @language_id = ?;"
-        cursor.execute(query, film_id, episode_id, language_id)
+        cursor.execute(query, subtitle_info.film_id, subtitle_info.episode_id, subtitle_info.language_id)
         conn.commit()
     
     except pyodbc.IntegrityError:
@@ -570,12 +570,12 @@ async def insert_subtitle(film_id: int = Query(None), episode_id: int = Query(No
     return {"message": "Subtitle inserted"}
 
 @app.put("/subtitle/{id}")
-async def update_subtitle(id: int, film_id: int = Query(...), episode_id: int = Query(...), language_id: int = Query(...), token: str = Depends(oauth2_scheme)):
+async def update_subtitle(id: int, subtitle_info: BaseModels.SubtitleInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try: 
         query = f"EXEC [UpdateSubtitle] @subtitle_id = ?, @film_id = ?, @episode_id = ?, @language_id = ?;"
-        cursor.execute(query, id, film_id, episode_id, language_id)
+        cursor.execute(query, id, subtitle_info.film_id, subtitle_info.episode_id, subtitle_info.language_id)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -639,12 +639,12 @@ async def get_episode_by_id(id: int, data_type: str, token: str = Depends(oauth2
     return correct_data.return_correct_format(result_list, data_type, "episode")
 
 @app.post("/episode")
-async def insert_episode(series_id: int = Query(...), title: str = Query(...), duration: str = Query(...), episode_number: int = Query(...), token: str = Depends(oauth2_scheme)):
+async def insert_episode(episode_info: BaseModels.EpisodeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [InsertEpisode] @series_id = ?, @title = ?, @duration = ?, @episode_number = ?;"
-        cursor.execute(query, series_id, title, duration, episode_number)
+        cursor.execute(query, episode_info.series_id, episode_info.title, episode_info.duration, episode_info.episode_number)
         conn.commit()
     
     except pyodbc.IntegrityError:
@@ -654,12 +654,12 @@ async def insert_episode(series_id: int = Query(...), title: str = Query(...), d
 
 
 @app.put("/episode/{id}")
-async def update_episode(id: int, series_id: int = Query(...), title: str = Query(...), duration: str = Query(...), episode_number: int = Query(...), token: str = Depends(oauth2_scheme)):
+async def update_episode(id: int, episode_info: BaseModels.EpisodeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try: 
         query = f"EXEC [UpdateEpisode] @episode_id = ?, @series_id = ?, @title = ?, @duration = ?, @episode_number = ?;"
-        cursor.execute(query, id, series_id, title, duration, episode_number)
+        cursor.execute(query, id, episode_info.series_id, episode_info.title, episode_info.duration, episode_info.episode_number)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -1000,12 +1000,12 @@ async def get_preferred_attribute_by_profile_id(profile_id: int, data_type: str,
     return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
 
 @app.post("/preferred-attribute")
-async def insert_preferred_attribute(profile_id: int = Query(...), attribute_id: int = Query(...), token: str = Depends(oauth2_scheme)):
+async def insert_preferred_attribute(preferred_attribute_info: BaseModels.PreferredAttributeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [InsertPreferredAttribute] @profile_id = ?, @attribute_id = ?;"
-        cursor.execute(query, profile_id, attribute_id)
+        cursor.execute(query, preferred_attribute_info.profile_id, preferred_attribute_info.attribute_id)
         conn.commit()
 
     except pyodbc.IntegrityError as e:
@@ -1014,12 +1014,12 @@ async def insert_preferred_attribute(profile_id: int = Query(...), attribute_id:
     return {"message": "Preferred attribute inserted"}
 
 @app.put("/preferred-attribute/{profile_id}-{attribute_id}")
-async def update_preferred_attributes(profile_id: int, attribute_id: int, new_profile_id: int = Query(...), new_attribute_id: str = Query(...), token: str = Depends(oauth2_scheme)):
+async def update_preferred_attributes(profile_id: int, attribute_id: int, preferred_attribute_info: BaseModels.PreferredAttributeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [UpdatePreferredAttribute] @profile_id = ?, @attribute_id = ?, @new_profile_id = ?, @new_attribute_id = ?;"
-        cursor.execute(query, profile_id, attribute_id, new_profile_id, new_attribute_id)
+        cursor.execute(query, profile_id, attribute_id, preferred_attribute_info.new_profile_id, preferred_attribute_info.new_attribute_id)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -1107,12 +1107,12 @@ async def get_film_genre_by_attribute_id(attribute_id: int, data_type: str, toke
     return correct_data.return_correct_format(result_list, data_type, "film-genre")
 
 @app.post("/film-genre")
-async def insert_film_genre(film_id: int = Query(...), attribute_id: int = Query(...), token: str = Depends(oauth2_scheme)):
+async def insert_film_genre(film_genre_info: BaseModels.FilmGenreInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [InsertFilmGenre] @film_id = ?, @attribute_id = ?;"
-        cursor.execute(query, film_id, attribute_id)
+        cursor.execute(query, film_genre_info.film_id, film_genre_info.attribute_id)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -1121,12 +1121,12 @@ async def insert_film_genre(film_id: int = Query(...), attribute_id: int = Query
     return {"message": "Film genre inserted"}
 
 @app.put("/film-genre/{film_id}-{attribute_id}")
-async def update_preferred_attributes(film_id: int, attribute_id: int, new_film_id: int = Query(...), new_attribute_id: str = Query(...), token: str = Depends(oauth2_scheme)):
+async def update_preferred_attributes(film_id: int, attribute_id: int, film_genre_info: BaseModels.FilmGenreInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [UpdateFilmGenre] @film_id = ?, @attribute_id = ?, @new_film_id = ?, @new_attribute_id = ?;"
-        cursor.execute(query, film_id, attribute_id, new_film_id, new_attribute_id)
+        cursor.execute(query, film_id, attribute_id, film_genre_info.new_film_id, film_genre_info.new_attribute_id)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -1216,12 +1216,12 @@ async def get_series_genre_by_attribute_id(attribute_id: int, data_type: str, to
 
 
 @app.post("/series-genre")
-async def insert_series_genre(series_id: int = Query(...), attribute_id: int = Query(...), token: str = Depends(oauth2_scheme)):
+async def insert_series_genre(series_genre_info: BaseModels.SeriesGenerInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [InsertSeriesGenre] @series_id = ?, @attribute_id = ?;"
-        cursor.execute(query, series_id, attribute_id)
+        cursor.execute(query, series_genre_info.series_id, series_genre_info.attribute_id)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -1231,13 +1231,12 @@ async def insert_series_genre(series_id: int = Query(...), attribute_id: int = Q
 
 
 @app.put("/series-genre/{series_id}-{attribute_id}")
-async def update_series_genre(series_id: int, attribute_id: int, new_series_id: int = Query(...),
-                                      new_attribute_id: str = Query(...), token: str = Depends(oauth2_scheme)):
+async def update_series_genre(series_id: int, attribute_id: int, series_genre_info: BaseModels.SeriesGenerInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [UpdateSeriesGenre] @series_id = ?, @attribute_id = ?, @new_series_id = ?, @new_attribute_id = ?;"
-        cursor.execute(query, series_id, attribute_id, new_series_id, new_attribute_id)
+        cursor.execute(query, series_id, attribute_id, series_genre_info.new_series_id, series_genre_info.new_attribute_id)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -1401,12 +1400,12 @@ async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token:
 
 
 @app.post("/film-quality")
-async def insert_film_quality(film_id: int = Query(...), quality_id: int = Query(...), token: str = Depends(oauth2_scheme)):
+async def insert_film_quality(film_quality_info: BaseModels.FilmQualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [InsertFilmQuality] @film_id = ?, @quality_id = ?;"
-        cursor.execute(query, film_id, quality_id)
+        cursor.execute(query, film_quality_info.film_id, film_quality_info.quality_id)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -1416,13 +1415,12 @@ async def insert_film_quality(film_id: int = Query(...), quality_id: int = Query
 
 
 @app.put("/film-quality/{film_id}-{quality_id}")
-async def update_film_quality(film_id: int, quality_id: int, new_film_id: int = Query(...),
-                                      new_quality_id: str = Query(...), token: str = Depends(oauth2_scheme)):
+async def update_film_quality(film_id: int, quality_id: int, film_quality_info: BaseModels.FilmQualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     try:
         query = f"EXEC [UpdateFilmQuality] @film_id = ?, @quality_id = ?, @new_film_id = ?, @new_quality_id = ?;"
-        cursor.execute(query, film_id, quality_id, new_film_id, new_quality_id)
+        cursor.execute(query, film_id, quality_id, film_quality_info.new_film_id, film_quality_info.new_quality_id)
         conn.commit()
 
     except pyodbc.IntegrityError:

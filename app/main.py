@@ -1444,3 +1444,500 @@ async def delete_film_quality(film_id: int, quality_id: int, token: str = Depend
     return {"message": "Film quality deleted"}
 
 # end film quality
+
+#Users start
+@app.get("/users/{data_type}")
+async def get_users(data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectUser;")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "user")
+
+@app.get("/users/{id}/{data_type}")
+async def get_users_by_id(id: int, data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    cursor.execute(f"EXECUTE SelectUserById @user_id = {id};")
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "user")
+
+@app.put("/users/{id}")
+async def put_users(id: int, language_id: int, is_activated: int, is_blocked: int, login_info: LoginInfo, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    try:
+
+        query = """EXECUTE UpdateUser @user_id = ?, @username = ?, @language_id = ?, @password = ?, @is_activated = ?, @is_blocked = ?, @email = ?;"""
+        cursor.execute(query, id, login_info.username, language_id, login_info.password, is_activated, is_blocked, login_info.email)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Email should be unique")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    cursor.execute(f"EXECUTE SelectUserById @user_id = {id};")
+
+    id = cursor.fetchone()[0]
+
+    return {
+        "token": encode_token(id, login_info.username)
+    }
+
+@app.delete("/users/{id}")
+async def delete_users(id: int, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    try:
+
+        query = """EXECUTE DeleteUser @user_id = ?;"""
+        cursor.execute(query, id)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Email should be unique")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return f"User with id = {id} deleted successfully."
+
+#Users end
+
+#Dubbing start
+
+@app.get("/dubbings/{data_type}")
+async def get_dubbings(data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE SelectDubbing;"""
+    cursor.execute(query)
+
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "dubbing")
+
+@app.get("/dubbings/{dubbing_id}/{data_type}")
+async def get_dubbings_by_id(dubbing_id: int, data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE SelectDubbingById @dubbing_id = ?;"""
+    cursor.execute(query, dubbing_id)
+
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "dubbing")
+
+@app.post("/dubbings")
+async def post_dubbings(language_id: int = Query(...), dubbing_company: str = Query(...), film_id: int = Query(None), episode_id: int = Query(None), token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    if (film_id is None and episode_id is None) or (film_id is not None and episode_id is not None):
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    query = """EXECUTE InsertDubbing @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
+    cursor.execute(query, film_id, episode_id, language_id, dubbing_company)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return "Dubbing added successfully."
+
+@app.put("/dubbings/{dubbing_id}")
+async def put_dubbings(dubbing_id: int, language_id: int = Query(...), dubbing_company: str = Query(...), film_id: int = Query(None), episode_id: int = Query(None), token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE UpdateDubbing @dubbing_id = ?, @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
+    cursor.execute(query, dubbing_id, film_id, episode_id, language_id, dubbing_company)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Dubbing with id = {dubbing_id} edited successfully."
+
+@app.delete("/dubbings/{dubbing_id}")
+async def delete_dubbings(dubbing_id: int, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE DeleteDubbing @dubbing_id = ?;"""
+    cursor.execute(query, dubbing_id)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Dubbing with id = {dubbing_id} deleted successfully."
+
+#Dubbing end
+
+#Series start
+
+@app.get("/series/{data_type}")
+async def get_series(data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE SelectSeries;"""
+    cursor.execute(query)
+
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series")
+
+@app.get("/series/{series_id}/{data_type}")
+async def get_series_by_id(series_id: int, data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE SelectSeriesById @series_id = ?;"""
+    cursor.execute(query, series_id)
+
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "series")
+
+@app.post("/series")
+async def post_series(title: str, episode_amount: int, token: str = Query(...)):
+
+    print(title, episode_amount)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE InsertSeries @title = ?, @episodeAmount = ?;"""
+    cursor.execute(query, title, episode_amount)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return "Series added successfully."
+
+@app.put("/series/{series_id}")
+async def put_series(series_id: int, title: str, episode_amount: int, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE UpdateSeries @series_id = ?, @title = ?, @episodeAmount = ?;"""
+    cursor.execute(query, series_id, title, episode_amount)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Series with id = {series_id} edited successfully."
+
+@app.delete("/series/{series_id}")
+async def delete_series(series_id: int, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE DeleteSeries @series_id = ?;"""
+    cursor.execute(query, series_id)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Series with id = {series_id} deleted successfully."
+
+#Series end
+
+#Subscription start
+
+@app.get("/subscriptions/{data_type}")
+async def get_subscriptions(data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE SelectSubscription;"""
+    cursor.execute(query)
+
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "subscription")
+
+@app.get("/subscriptions/{subscription_id}/{data_type}")
+async def get_subscriptions_by_id(subscription_id: int, data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE SelectSubscriptionById @subscription_id = ?;"""
+    cursor.execute(query, subscription_id)
+
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "subscription")
+
+@app.post("/subscriptions")
+async def post_subscriptions(user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE InsertSubscription @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
+    cursor.execute(query, user_id, type, price, start_date, expiration_date, is_discount)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return "Subscription added successfully."
+
+@app.put("/subscriptions/{subscription_id}")
+async def put_subscriptions(subscription_id: int, user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE UpdateSubscription @subscription_id = ?, @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
+    cursor.execute(query, subscription_id, user_id, type, price, start_date, expiration_date, is_discount)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Subscription with id = {subscription_id} edited successfully."
+
+@app.delete("/subscriptions/{subscription_id}")
+async def delete_subscriptions(subscription_id: int, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE DeleteSubscription @subscription_id = ?;"""
+    cursor.execute(query, subscription_id)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Subscription with id = {subscription_id} deleted successfully."
+
+#Subscription end
+
+#Watchlist start
+
+@app.get("/watchlists/{data_type}")
+async def get_watchlists(data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE SelectWatchlist_Item;"""
+    cursor.execute(query)
+
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "watchlist_item")
+
+@app.get("/watchlists/{watchlist_item_id}/{data_type}")
+async def get_watchlists_by_id(watchlist_item_id: int, data_type: str, token: str = Query(...)):
+    # Start of the code that checks if the token is valid and if the data type is valid
+    correct_data.validate_data_type(data_type)
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE SelectWatchlist_ItemById @watchlist_item_id = ?;"""
+    cursor.execute(query, watchlist_item_id)
+
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return correct_data.return_correct_format(result_list, data_type, "subscription")
+
+@app.post("/watchlists")
+async def post_series(profile_id: int = Query(...), series_id: int = Query(None), film_id: int = Query(None), is_finished: bool = Query(...), token: str = Query(...)):
+
+    if (film_id is None and series_id is None) or (film_id is not None and series_id is not None):
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE InsertWatchlist_Item @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
+    cursor.execute(query, profile_id, series_id, film_id, is_finished)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return "Watchlist item added successfully."
+
+@app.put("/watchlists/{watchlist_item_id}")
+async def put_series(watchlist_item_id: int, profile_id: int = Query(...), series_id: int = Query(None), film_id: int = Query(None), is_finished: bool = Query(...), token: str = Query(...)):
+
+    if (film_id is None and series_id is None) or (film_id is not None and series_id is not None):
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE UpdateWatchlist_Item @watchlist_item_id = ?, @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
+    cursor.execute(query, watchlist_item_id, profile_id, series_id, film_id, is_finished)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Watchlist item with id = {watchlist_item_id} edited successfully."
+
+@app.delete("/watchlists/{watchlist_item_id}")
+async def delete_series(watchlist_item_id: int, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+    # End of the code that checks if the token is valid and if the data type is valid
+
+    query = """EXECUTE DeleteWatchlist_Item @watchlist_item_id = ?;"""
+    cursor.execute(query, watchlist_item_id)
+    conn.commit()
+
+    if cursor.rowcount <= 0:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    return f"Watchlist item with id = {watchlist_item_id} deleted successfully."

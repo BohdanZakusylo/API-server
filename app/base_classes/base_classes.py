@@ -55,3 +55,12 @@ class BaseModels:
     class FilmQualityInfo(BaseModel):
         film_id: int
         quality_id: int
+    
+    class UpdateUserInfo(BaseModel):
+        email: str 
+        password: str 
+        username: str 
+        age: int
+        language_id: int
+        is_activated: int
+        is_blocked: int

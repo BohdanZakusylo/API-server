@@ -1447,12 +1447,11 @@ async def delete_film_quality(film_id: int, quality_id: int, token: str = Depend
 
 #Users start
 @app.get("/users/{data_type}")
-async def get_users(data_type: str, token: str = Query(...)):
+async def get_users(data_type: str, token: str =  Depends(oauth2_scheme)):
     # Start of the code that checks if the token is valid and if the data type is valid
     correct_data.validate_data_type(data_type)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
+    decode_token(token)
     # End of the code that checks if the token is valid and if the data type is valid
 
     cursor.execute(f"EXECUTE SelectUser;")
@@ -1468,7 +1467,7 @@ async def get_users(data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "user")
 
 @app.get("/users/{id}/{data_type}")
-async def get_users_by_id(id: int, data_type: str, token: str = Query(...)):
+async def get_users_by_id(id: int, data_type: str, token: str =  Depends(oauth2_scheme)):
     # Start of the code that checks if the token is valid and if the data type is valid
     correct_data.validate_data_type(data_type)
 
@@ -1489,16 +1488,14 @@ async def get_users_by_id(id: int, data_type: str, token: str = Query(...)):
     return correct_data.return_correct_format(result_list, data_type, "user")
 
 @app.put("/users/{id}")
-async def put_users(id: int, language_id: int, is_activated: int, is_blocked: int, login_info: LoginInfo, token: str = Query(...)):
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def put_users(id: int, update_user_info: BaseModels.UpdateUserInfo, token: str = Depends(oauth2_scheme)):
+    #TODO check if user wants to update itself
+    decode_token(token)
 
     try:
 
         query = """EXECUTE UpdateUser @user_id = ?, @username = ?, @language_id = ?, @password = ?, @is_activated = ?, @is_blocked = ?, @email = ?;"""
-        cursor.execute(query, id, login_info.username, language_id, login_info.password, is_activated, is_blocked, login_info.email)
+        cursor.execute(query, id, update_user_info.username, update_user_info.language_id, update_user_info.password, update_user_info.is_activated, update_user_info.is_blocked, update_user_info.login_info.email)
         conn.commit()
 
     except pyodbc.IntegrityError:
@@ -1512,7 +1509,7 @@ async def put_users(id: int, language_id: int, is_activated: int, is_blocked: in
     id = cursor.fetchone()[0]
 
     return {
-        "token": encode_token(id, login_info.username)
+        "token": encode_token(id, update_user_info.username)
     }
 
 @app.delete("/users/{id}")
@@ -1530,9 +1527,6 @@ async def delete_users(id: int, token: str = Query(...)):
 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Email should be unique")
-
-    if cursor.rowcount <= 0:
-        raise HTTPException(status_code=404, detail="User not found")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=404, detail="User not found")

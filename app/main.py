@@ -40,7 +40,7 @@ print("Connection established")
 
 @app.get("/")
 async def main_page():
-    return {"message": "Hello World"}
+    return {"message": "Hello World", "status_code": 200, "message": "OK"}
 
 
 @app.post("/registration")
@@ -103,14 +103,16 @@ async def get_attributes(data_type: str, token: str = Depends(oauth2_scheme)):
     cursor.execute(f"EXEC [SelectAtribute];")
     rows = cursor.fetchall()
     result_list = []
+
     
     for row in rows:
         user_dict = {}
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "attributes")
+    return correct_data.return_correct_format(response, data_type, "attributes")
 
 @app.get("/attributes/{id}/{data_type}")
 async def get_attributes_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
@@ -127,8 +129,10 @@ async def get_attributes_by_id(id: int, data_type: str, token: str = Depends(oau
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "attributes")
+
+    return correct_data.return_correct_format(response, data_type, "attributes")
 
 @app.post("/attributes")
 async def insert_atributes(attribute_data: BaseModels.AttributesInfo, token: str = Depends(oauth2_scheme)):
@@ -194,8 +198,10 @@ async def get_languages(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "languages")
+
+    return correct_data.return_correct_format(response, data_type, "languages")
 
 
 @app.get("/language/{id}/{data_type}")
@@ -213,8 +219,9 @@ async def get_languages_by_id(id: int, data_type: str, token: str = Depends(oaut
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "languages")
+    return correct_data.return_correct_format(response, data_type, "languages")
 
 @app.post("/language")
 async def insert_languages(language_info: BaseModels.LanguageInfo, token: str = Depends(oauth2_scheme)):
@@ -279,8 +286,9 @@ async def get_profile(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile")
+    return correct_data.return_correct_format(response, data_type, "profile")
 
 @app.get("/profile/{id}/{data_type}")
 async def get_profile_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
@@ -297,8 +305,9 @@ async def get_profile_by_id(id: int, data_type: str, token: str = Depends(oauth2
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile")
+    return correct_data.return_correct_format(response, data_type, "profile")
 
 
 @app.post("/profile")
@@ -363,8 +372,9 @@ async def get_film(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
         
-    return correct_data.return_correct_format(result_list, data_type, "film")
+    return correct_data.return_correct_format(response, data_type, "film")
 
 
 @app.get("/film/{id}/{data_type}")
@@ -385,8 +395,9 @@ async def get_film_by_id(id: int, data_type: str, token: str = Depends(oauth2_sc
             else:
                 user_dict[column[0]] = row[idx]
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film")
+    return correct_data.return_correct_format(response, data_type, "film")
 
 @app.post("/film")
 async def insert_film(film_info: BaseModels.FilmInfo, token: str = Depends(oauth2_scheme)):
@@ -450,8 +461,9 @@ async def get_quality(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
         
-    return correct_data.return_correct_format(result_list, data_type, "quality")
+    return correct_data.return_correct_format(response, data_type, "quality")
 
 @app.get("/quality/{id}/{data_type}")
 async def get_quality_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
@@ -468,8 +480,9 @@ async def get_quality_by_id(id: int, data_type: str, token: str = Depends(oauth2
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "quality")
+    return correct_data.return_correct_format(response, data_type, "quality")
 
 @app.post("/quality")
 async def insert_quality(quality_info: BaseModels.QualityInfo, token: str = Depends(oauth2_scheme)):
@@ -534,8 +547,9 @@ async def get_subtitle(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
         
-    return correct_data.return_correct_format(result_list, data_type, "subtitle")
+    return correct_data.return_correct_format(response, data_type, "subtitle")
 
 @app.get("/subtitle/{id}/{data_type}")
 async def get_subtitle_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
@@ -552,8 +566,9 @@ async def get_subtitle_by_id(id: int, data_type: str, token: str = Depends(oauth
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "subtitle")
+    return correct_data.return_correct_format(response, data_type, "subtitle")
 
 @app.post("/subtitle")
 async def insert_subtitle(subtitle_info: BaseModels.SubtitleInfo, token: str = Depends(oauth2_scheme)):
@@ -617,8 +632,9 @@ async def get_episode(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
         
-    return correct_data.return_correct_format(result_list, data_type, "episode")
+    return correct_data.return_correct_format(response, data_type, "episode")
 
 @app.get("/episode/{id}/{data_type}")
 async def get_episode_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
@@ -635,8 +651,9 @@ async def get_episode_by_id(id: int, data_type: str, token: str = Depends(oauth2
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "episode")
+    return correct_data.return_correct_format(response, data_type, "episode")
 
 @app.post("/episode")
 async def insert_episode(episode_info: BaseModels.EpisodeInfo, token: str = Depends(oauth2_scheme)):
@@ -700,8 +717,9 @@ async def get_view_episode_dubbing(data_type: str, token: str = Depends(oauth2_s
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "episode-dubbing-view")
+    return correct_data.return_correct_format(response, data_type, "episode-dubbing-view")
 
 @app.get("/episode-subtitle/{data_type}")
 async def get_view_episode_subtitle(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -718,8 +736,9 @@ async def get_view_episode_subtitle(data_type: str, token: str = Depends(oauth2_
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "episode-subtitle-view")
+    return correct_data.return_correct_format(response, data_type, "episode-subtitle-view")
 
 @app.get("/series-episodes/{data_type}")
 async def get_view_series_episodes(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -736,8 +755,9 @@ async def get_view_series_episodes(data_type: str, token: str = Depends(oauth2_s
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-episodes-view")
+    return correct_data.return_correct_format(response, data_type, "series-episodes-view")
 
 @app.get("/film-attribute/{data_type}")
 async def get_view_film_attribute(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -754,8 +774,9 @@ async def get_view_film_attribute(data_type: str, token: str = Depends(oauth2_sc
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-attribute-view")
+    return correct_data.return_correct_format(response, data_type, "film-attribute-view")
 
 @app.get("/film-dubbing/{data_type}")
 async def get_view_film_dubbing(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -772,8 +793,9 @@ async def get_view_film_dubbing(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-dubbing-view")
+    return correct_data.return_correct_format(response, data_type, "film-dubbing-view")
 
 @app.get("/film-quality/{data_type}")
 async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -790,8 +812,9 @@ async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-quality-view")
+    return correct_data.return_correct_format(response, data_type, "film-quality-view")
 
 @app.get("/film-subtitle/{data_type}")
 async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -808,8 +831,9 @@ async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-subtitle-view")
+    return correct_data.return_correct_format(response, data_type, "film-subtitle-view")
 
 @app.get("/profile-watchlist-film/{data_type}")
 async def get_view_profile_watchlist_film(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -826,8 +850,9 @@ async def get_view_profile_watchlist_film(data_type: str, token: str = Depends(o
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-watchlist-film-view")
+    return correct_data.return_correct_format(response, data_type, "profile-watchlist-film-view")
 
 @app.get("/profile-watchlist-series/{data_type}")
 async def get_view_profile_watchlist_series(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -844,8 +869,9 @@ async def get_view_profile_watchlist_series(data_type: str, token: str = Depends
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-watchlist-series-view")
+    return correct_data.return_correct_format(response, data_type, "profile-watchlist-series-view")
 
 # @app.get("/profile-watchlist-all/{data_type}")
 
@@ -864,8 +890,9 @@ async def get_view_profile_preferred_attribute(data_type: str, token: str = Depe
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile_preferred_attribute-view")
+    return correct_data.return_correct_format(response, data_type, "profile_preferred_attribute-view")
 
 @app.get("/series-genre/{data_type}")
 async def get_view_series_genre(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -882,8 +909,9 @@ async def get_view_series_genre(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre-view")
+    return correct_data.return_correct_format(response, data_type, "series-genre-view")
 
 @app.get("/user-information/{data_type}")
 async def get_view_user_information(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -900,8 +928,9 @@ async def get_view_user_information(data_type: str, token: str = Depends(oauth2_
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "user-information-view")
+    return correct_data.return_correct_format(response, data_type, "user-information-view")
 
 #dbms error
 @app.get("/user-profile/{data_type}")
@@ -919,8 +948,9 @@ async def get_view_user_profile(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "user-profile-view")
+    return correct_data.return_correct_format(response, data_type, "user-profile-view")
 
 @app.get("/episode-view/{data_type}")
 async def get_view_episode_view(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -937,8 +967,9 @@ async def get_view_episode_view(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "view-episode-view")
+    return correct_data.return_correct_format(response, data_type, "view-episode-view")
 
 @app.get("/film-view/{data_type}")
 async def get_view_film_view(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -955,8 +986,9 @@ async def get_view_film_view(data_type: str, token: str = Depends(oauth2_scheme)
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "view-film-view")
+    return correct_data.return_correct_format(response, data_type, "view-film-view")
 
 #start preferred attributes
 
@@ -975,8 +1007,9 @@ async def get_preferred_attribute(data_type: str, token: str = Depends(oauth2_sc
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
+    return correct_data.return_correct_format(response, data_type, "preferred-attribute")
 
 @app.get("/preferred-attribute/{profile_id}/{data_type}")
 async def get_preferred_attribute_by_profile_id(profile_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
@@ -996,8 +1029,9 @@ async def get_preferred_attribute_by_profile_id(profile_id: int, data_type: str,
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
+    return correct_data.return_correct_format(response, data_type, "preferred-attribute")
 
 @app.post("/preferred-attribute")
 async def insert_preferred_attribute(preferred_attribute_info: BaseModels.PreferredAttributeInfo, token: str = Depends(oauth2_scheme)):
@@ -1060,8 +1094,9 @@ async def get_film_genre(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+    return correct_data.return_correct_format(response, data_type, "film-genre")
 
 @app.get("/film-genre/{film_id}/{data_type}")
 async def get_film_genre_by_film_id(film_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
@@ -1081,8 +1116,9 @@ async def get_film_genre_by_film_id(film_id: int, data_type: str, token: str = D
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+    return correct_data.return_correct_format(response, data_type, "film-genre")
 
 
 @app.get("/genre-film/{attribute_id}/{data_type}")
@@ -1103,8 +1139,9 @@ async def get_film_genre_by_attribute_id(attribute_id: int, data_type: str, toke
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+    return correct_data.return_correct_format(response, data_type, "film-genre")
 
 @app.post("/film-genre")
 async def insert_film_genre(film_genre_info: BaseModels.FilmGenreInfo, token: str = Depends(oauth2_scheme)):
@@ -1167,8 +1204,9 @@ async def get_series_genre(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    return correct_data.return_correct_format(response, data_type, "series-genre")
 
 
 @app.get("/series-genre/{series_id}/{data_type}")
@@ -1189,8 +1227,9 @@ async def get_series_genre_by_series_id(series_id: int, data_type: str, token: s
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    return correct_data.return_correct_format(response, data_type, "series-genre")
 
 
 @app.get("/genre-series/{attribute_id}/{data_type}")
@@ -1211,8 +1250,9 @@ async def get_series_genre_by_attribute_id(attribute_id: int, data_type: str, to
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    return correct_data.return_correct_format(response, data_type, "series-genre")
 
 
 @app.post("/series-genre")
@@ -1293,8 +1333,9 @@ def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str
             else:
                 user_dict[column[0]] = row[idx]
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
+    return correct_data.return_correct_format(response, data_type, "profile-film-overview-view")
 
 @app.get("/profile-film-overview/{data_type}")
 def get_view_profile_film_overview_all(data_type: str, token: str = Depends(oauth2_scheme)):
@@ -1307,8 +1348,9 @@ def get_view_profile_film_overview_all(data_type: str, token: str = Depends(oaut
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-quality")
+    return correct_data.return_correct_format(response, data_type, "film-quality")
 
 
 @app.get("/film-quality/{film_id}/{data_type}")
@@ -1329,8 +1371,9 @@ async def get_film_quality_by_film_id(film_id: int, data_type: str, token: str =
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    return correct_data.return_correct_format(response, data_type, "series-genre")
 
 
 @app.get("/quality-film/{quality_id}/{data_type}")
@@ -1351,8 +1394,9 @@ async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token:
             else:
                 user_dict[column[0]] = row[idx]
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
+    return correct_data.return_correct_format(response, data_type, "profile-film-overview-view")
 
 
 #cats
@@ -1395,8 +1439,9 @@ async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token:
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    return correct_data.return_correct_format(response, data_type, "series-genre")
 
 
 @app.post("/film-quality")
@@ -1463,8 +1508,9 @@ async def get_users(data_type: str, token: str =  Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "user")
+    return correct_data.return_correct_format(response, data_type, "user")
 
 @app.get("/users/{id}/{data_type}")
 async def get_users_by_id(id: int, data_type: str, token: str =  Depends(oauth2_scheme)):
@@ -1484,8 +1530,9 @@ async def get_users_by_id(id: int, data_type: str, token: str =  Depends(oauth2_
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "user")
+    return correct_data.return_correct_format(response, data_type, "user")
 
 @app.put("/users/{id}")
 async def put_users(id: int, update_user_info: BaseModels.UpdateUserInfo, token: str = Depends(oauth2_scheme)):
@@ -1557,8 +1604,9 @@ async def get_dubbings(data_type: str, token: str = Query(...)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "dubbing")
+    return correct_data.return_correct_format(response, data_type, "dubbing")
 
 @app.get("/dubbings/{dubbing_id}/{data_type}")
 async def get_dubbings_by_id(dubbing_id: int, data_type: str, token: str = Query(...)):
@@ -1580,8 +1628,9 @@ async def get_dubbings_by_id(dubbing_id: int, data_type: str, token: str = Query
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "dubbing")
+    return correct_data.return_correct_format(response, data_type, "dubbing")
 
 @app.post("/dubbings")
 async def post_dubbings(language_id: int = Query(...), dubbing_company: str = Query(...), film_id: int = Query(None), episode_id: int = Query(None), token: str = Query(...)):
@@ -1658,8 +1707,9 @@ async def get_series(data_type: str, token: str = Query(...)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series")
+    return correct_data.return_correct_format(response, data_type, "series")
 
 @app.get("/series/{series_id}/{data_type}")
 async def get_series_by_id(series_id: int, data_type: str, token: str = Query(...)):
@@ -1681,8 +1731,9 @@ async def get_series_by_id(series_id: int, data_type: str, token: str = Query(..
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series")
+    return correct_data.return_correct_format(response, data_type, "series")
 
 @app.post("/series")
 async def post_series(title: str, episode_amount: int, token: str = Query(...)):
@@ -1758,8 +1809,9 @@ async def get_subscriptions(data_type: str, token: str = Query(...)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "subscription")
+    return correct_data.return_correct_format(response, data_type, "subscription")
 
 @app.get("/subscriptions/{subscription_id}/{data_type}")
 async def get_subscriptions_by_id(subscription_id: int, data_type: str, token: str = Query(...)):
@@ -1781,8 +1833,9 @@ async def get_subscriptions_by_id(subscription_id: int, data_type: str, token: s
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "subscription")
+    return correct_data.return_correct_format(response, data_type, "subscription")
 
 @app.post("/subscriptions")
 async def post_subscriptions(user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
@@ -1856,8 +1909,9 @@ async def get_watchlists(data_type: str, token: str = Query(...)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "watchlist_item")
+    return correct_data.return_correct_format(response, data_type, "watchlist_item")
 
 @app.get("/watchlists/{watchlist_item_id}/{data_type}")
 async def get_watchlists_by_id(watchlist_item_id: int, data_type: str, token: str = Query(...)):
@@ -1879,8 +1933,9 @@ async def get_watchlists_by_id(watchlist_item_id: int, data_type: str, token: st
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "subscription")
+    return correct_data.return_correct_format(response, data_type, "subscription")
 
 @app.post("/watchlists")
 async def post_series(profile_id: int = Query(...), series_id: int = Query(None), film_id: int = Query(None), is_finished: bool = Query(...), token: str = Query(...)):

@@ -13,17 +13,22 @@ class Correct_Data:
 
     def validate_data_type(self, data_type):
         if data_type not in ACCEPTED_DATA_TYPES:
-            raise HTTPException(status_code=404, detail="data type in the end is invalid")
+            raise HTTPException(status_code=404, detail="data type is invalid")
 
     def return_correct_format(self, data_dict, data_type, entity):
         if data_type == "xml":
-            root = ET.Element(entity + "s")  # Pluralize entity name for the root element
+            data_list = data_dict.get("data", [])
+            status = data_dict.get("status")
 
-            for user_data in data_dict:
-                user_element = ET.SubElement(root, entity)
-                for key, value in user_data.items():
-                    ET.SubElement(user_element, key).text = str(value)
+            root = ET.Element("response")
+            status_element = ET.SubElement(root, "status")
+            status_element.text = status
 
-            return ET.tostring(root, encoding='unicode', method='xml')
-        
+            for item in data_list:
+                xml_item = ET.SubElement(root, entity)
+                for key, value in item.items():
+                    ET.SubElement(xml_item, key).text = value
+
+            return ET.tostring(root, encoding="unicode")
+
         return data_dict

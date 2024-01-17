@@ -4,7 +4,7 @@ from fastapi import HTTPException
 import xml.etree.ElementTree as ET
 
 
-ACCEPTED_DATA_TYPES = ["xml", "json"]
+ACCEPTED_DATA_TYPES = ["application/xml", "application/json"]
 
 
 class Correct_Data:
@@ -14,9 +14,11 @@ class Correct_Data:
     def validate_data_type(self, data_type):
         if data_type not in ACCEPTED_DATA_TYPES:
             raise HTTPException(status_code=404, detail="data type is invalid")
+        return data_type
 
     def return_correct_format(self, data_dict, data_type, entity):
-        if data_type == "xml":
+        print(f"Data type: {data_type}")
+        if data_type == "application/xml":
             data_list = data_dict.get("data", [])
             status = data_dict.get("status")
 

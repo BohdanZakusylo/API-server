@@ -78,3 +78,17 @@ class BaseModels:
     class LoginInfo(BaseModel):
         email: str
         password: str
+
+    class SubscriptionInfo(BaseModel):
+        user_id: int
+        type: str
+        price: float
+        start_date: str
+        expiration_date: str
+        is_discount: bool
+
+    class WatchlistItemInfo(BaseModel):
+        profile_id: int
+        series_id: int = None
+        film_id: int = None
+        is_finished: bool

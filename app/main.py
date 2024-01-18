@@ -54,14 +54,15 @@ async def registration(registration_info: BaseModels.RegistrationIngfo):
         raise HTTPException(status_code=400, detail="Username and email should be unique")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=404, detail="Username and email should be unique")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{registration_info.email}';")
 
     id = cursor.fetchone()[0]
 
     return {
-        "token": encode_token(id, registration_info.username)
+        "token": encode_token(id, registration_info.username),
+        "status_code": "200 OK"
     }
 
 @app.get("/login")

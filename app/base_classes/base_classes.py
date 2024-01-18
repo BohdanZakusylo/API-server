@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 
 class BaseModels:
-    class LoginInfo(BaseModel):
+    class RegistrationIngfo(BaseModel):
         email: str 
         password: str 
         username: str 
@@ -74,3 +74,7 @@ class BaseModels:
     class SeriesInfo(BaseModel):
         title: str
         episode_amount: int
+    
+    class LoginInfo(BaseModel):
+        email: str
+        password: str

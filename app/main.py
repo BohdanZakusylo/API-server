@@ -43,12 +43,12 @@ async def main_page():
 
 
 @app.post("/registration")
-async def login(login_info: BaseModels.LoginInfo):
+async def registration(registration_info: BaseModels.RegistrationIngfo):
     try:
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
-        password_bytes = login_info.password.encode('utf-8')
+        password_bytes = registration_info.password.encode('utf-8')
         hashed_password = hashlib.sha256(password_bytes).hexdigest()
-        cursor.execute(query, login_info.email, hashed_password, login_info.username, login_info.age)
+        cursor.execute(query, registration_info.email, hashed_password, registration_info.username, registration_info.age)
         conn.commit()
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Username and email should be unique")
@@ -56,12 +56,28 @@ async def login(login_info: BaseModels.LoginInfo):
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=404, detail="Username and email should be unique")
 
-    cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{login_info.email}';")
+    cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{registration_info.email}';")
 
     id = cursor.fetchone()[0]
 
     return {
-        "token": encode_token(id, login_info.username)
+        "token": encode_token(id, registration_info.username)
+    }
+
+@app.get("/login")
+async def login(login_info: BaseModels.LoginInfo):
+    try:
+        query = """SELECT [user].user_id FROM [user] WHERE [user].email = ? AND [user].password = ?;"""
+        password = login_info.password.encode('utf-8')
+        hashed_password_bytes = hashlib.sha256(password).digest()
+        print(hashed_password_bytes)
+        cursor.execute(query, login_info.email, hashed_password_bytes)
+        user_id = cursor.fetchone()[0]
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "token": encode_token(user_id, login_info.email)
     }
 
 @app.get("/refresh-token")

@@ -4,7 +4,7 @@ import hashlib
 import requests
 import json
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, HTTPException, Depends
+from fastapi import FastAPI, Query, HTTPException, Depends, Header
 from app.token_generator.token_validation import encode_token, decode_token, encode_refresh_token, decode_refresh_token
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.data_type_validation.data_validate import Correct_Data
@@ -14,7 +14,6 @@ from app.base_classes.base_classes import BaseModels
 from typing import Optional
 
 
-ACCEPTED_DATA_TYPES = ["xml", "json"]
 correct_data = Correct_Data()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -40,7 +39,7 @@ print("Connection established")
 
 @app.get("/")
 async def main_page():
-    return {"message": "Hello World"}
+    return {"message": "Hello World", "status_code": 200, "message": "OK"}
 
 
 @app.post("/registration")
@@ -78,7 +77,6 @@ def get_refresh_token_by_token(token: str = Depends(oauth2_scheme)):
         "refresh_token": encode_refresh_token(decoded_token["id"], decoded_token["username"]),
     }
 
-
 @app.get("/new-token")
 def get_token_by_refresh_token(refresh_token: str = Depends(oauth2_scheme)):
     decoded_token = decode_refresh_token(refresh_token)
@@ -94,27 +92,26 @@ def get_token_by_refresh_token(refresh_token: str = Depends(oauth2_scheme)):
 
 #start attributes
 
-@app.get("/attributes/{data_type}")
-async def get_attributes(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/attributes")
+async def get_attributes(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
     
     cursor.execute(f"EXEC [SelectAtribute];")
     rows = cursor.fetchall()
     result_list = []
+
     
     for row in rows:
         user_dict = {}
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "attributes")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "attributes")
 
-@app.get("/attributes/{id}/{data_type}")
-async def get_attributes_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/attributes/{id}")
+async def get_attributes_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
 
@@ -127,8 +124,10 @@ async def get_attributes_by_id(id: int, data_type: str, token: str = Depends(oau
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "attributes")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "attributes")
 
 @app.post("/attributes")
 async def insert_atributes(attribute_data: BaseModels.AttributesInfo, token: str = Depends(oauth2_scheme)):
@@ -179,10 +178,9 @@ async def delete_attributes(id: int, token: str = Depends(oauth2_scheme)):
 
 #start languages
 
-@app.get("/language/{data_type}")
-async def get_languages(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/language")
+async def get_languages(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
     decode_token(token)
     
     cursor.execute(f"EXEC [SelectLanguage];")
@@ -194,14 +192,15 @@ async def get_languages(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "languages")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "languages")
 
 
-@app.get("/language/{id}/{data_type}")
-async def get_languages_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/language/{id}")
+async def get_languages_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
     decode_token(token)
 
     cursor.execute(f"EXEC [SelectLanguageById] @language_id = {id};")
@@ -213,8 +212,9 @@ async def get_languages_by_id(id: int, data_type: str, token: str = Depends(oaut
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "languages")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "languages")
 
 @app.post("/language")
 async def insert_languages(language_info: BaseModels.LanguageInfo, token: str = Depends(oauth2_scheme)):
@@ -264,10 +264,9 @@ async def delete_languages(id: int, token: str = Depends(oauth2_scheme)):
 
 #start profile
 
-@app.get("/profile/{data_type}")
-async def get_profile(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/profile")
+async def get_profile(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
     decode_token(token)
     
     cursor.execute(f"EXEC [SelectProfile];")
@@ -279,12 +278,13 @@ async def get_profile(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile")
 
-@app.get("/profile/{id}/{data_type}")
-async def get_profile_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/profile/{id}")
+async def get_profile_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -297,8 +297,9 @@ async def get_profile_by_id(id: int, data_type: str, token: str = Depends(oauth2
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile")
 
 
 @app.post("/profile")
@@ -348,9 +349,9 @@ async def delete_profile(id: int, token: str = Depends(oauth2_scheme)):
 
 #start film
 
-@app.get("/film/{data_type}")
-async def get_film(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/film")
+async def get_film(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
     
@@ -363,13 +364,14 @@ async def get_film(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
         
-    return correct_data.return_correct_format(result_list, data_type, "film")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film")
 
 
-@app.get("/film/{id}/{data_type}")
-async def get_film_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/film/{id}")
+async def get_film_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -385,8 +387,9 @@ async def get_film_by_id(id: int, data_type: str, token: str = Depends(oauth2_sc
             else:
                 user_dict[column[0]] = row[idx]
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film")
 
 @app.post("/film")
 async def insert_film(film_info: BaseModels.FilmInfo, token: str = Depends(oauth2_scheme)):
@@ -435,9 +438,9 @@ async def delete_film(id: int, token: str = Depends(oauth2_scheme)):
 
 #start quality
 
-@app.get("/quality/{data_type}")
-async def get_quality(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/quality")
+async def get_quality(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
     
     decode_token(token)
     
@@ -450,12 +453,13 @@ async def get_quality(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
         
-    return correct_data.return_correct_format(result_list, data_type, "quality")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "quality")
 
-@app.get("/quality/{id}/{data_type}")
-async def get_quality_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/quality/{id}")
+async def get_quality_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
     
     decode_token(token)
 
@@ -468,8 +472,9 @@ async def get_quality_by_id(id: int, data_type: str, token: str = Depends(oauth2
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "quality")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "quality")
 
 @app.post("/quality")
 async def insert_quality(quality_info: BaseModels.QualityInfo, token: str = Depends(oauth2_scheme)):
@@ -519,9 +524,9 @@ async def delete_quality(id: int, token: str = Depends(oauth2_scheme)):
 
 #start subtitle
 
-@app.get("/subtitle/{data_type}")
-async def get_subtitle(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/subtitle")
+async def get_subtitle(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
     
@@ -534,12 +539,13 @@ async def get_subtitle(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
         
-    return correct_data.return_correct_format(result_list, data_type, "subtitle")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subtitle")
 
-@app.get("/subtitle/{id}/{data_type}")
-async def get_subtitle_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/subtitle/{id}")
+async def get_subtitle_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -552,8 +558,9 @@ async def get_subtitle_by_id(id: int, data_type: str, token: str = Depends(oauth
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "subtitle")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subtitle")
 
 @app.post("/subtitle")
 async def insert_subtitle(subtitle_info: BaseModels.SubtitleInfo, token: str = Depends(oauth2_scheme)):
@@ -602,9 +609,9 @@ async def delete_subtitle(id: int, token: str = Depends(oauth2_scheme)):
 
 #start episode
 
-@app.get("/episode/{data_type}")
-async def get_episode(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/episode")
+async def get_episode(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
     
@@ -617,12 +624,13 @@ async def get_episode(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
         
-    return correct_data.return_correct_format(result_list, data_type, "episode")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "episode")
 
-@app.get("/episode/{id}/{data_type}")
-async def get_episode_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/episode/{id}")
+async def get_episode_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -635,8 +643,9 @@ async def get_episode_by_id(id: int, data_type: str, token: str = Depends(oauth2
         for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "episode")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "episode")
 
 @app.post("/episode")
 async def insert_episode(episode_info: BaseModels.EpisodeInfo, token: str = Depends(oauth2_scheme)):
@@ -685,9 +694,9 @@ async def delete_episode(id: int, token: str = Depends(oauth2_scheme)):
 
 #start episode-dubbing view
 
-@app.get("/episode-dubbing/{data_type}")
-async def get_view_episode_dubbing(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/episode-dubbing")
+async def get_view_episode_dubbing(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -700,12 +709,13 @@ async def get_view_episode_dubbing(data_type: str, token: str = Depends(oauth2_s
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "episode-dubbing-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "episode-dubbing-view")
 
-@app.get("/episode-subtitle/{data_type}")
-async def get_view_episode_subtitle(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/episode-subtitle")
+async def get_view_episode_subtitle(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -718,12 +728,13 @@ async def get_view_episode_subtitle(data_type: str, token: str = Depends(oauth2_
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "episode-subtitle-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "episode-subtitle-view")
 
-@app.get("/series-episodes/{data_type}")
-async def get_view_series_episodes(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/series-episodes")
+async def get_view_series_episodes(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -736,12 +747,13 @@ async def get_view_series_episodes(data_type: str, token: str = Depends(oauth2_s
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-episodes-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-episodes-view")
 
-@app.get("/film-attribute/{data_type}")
-async def get_view_film_attribute(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/film-attribute")
+async def get_view_film_attribute(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -754,12 +766,13 @@ async def get_view_film_attribute(data_type: str, token: str = Depends(oauth2_sc
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-attribute-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-attribute-view")
 
-@app.get("/film-dubbing/{data_type}")
-async def get_view_film_dubbing(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/film-dubbing")
+async def get_view_film_dubbing(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -772,12 +785,13 @@ async def get_view_film_dubbing(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-dubbing-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-dubbing-view")
 
-@app.get("/film-quality/{data_type}")
-async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/film-quality")
+async def get_view_film_quality(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -790,12 +804,13 @@ async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-quality-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-quality-view")
 
-@app.get("/film-subtitle/{data_type}")
-async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/film-subtitle")
+async def get_view_film_quality(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -808,12 +823,13 @@ async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-subtitle-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-subtitle-view")
 
-@app.get("/profile-watchlist-film/{data_type}")
-async def get_view_profile_watchlist_film(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/profile-watchlist-film")
+async def get_view_profile_watchlist_film(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -826,12 +842,13 @@ async def get_view_profile_watchlist_film(data_type: str, token: str = Depends(o
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-watchlist-film-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-watchlist-film-view")
 
-@app.get("/profile-watchlist-series/{data_type}")
-async def get_view_profile_watchlist_series(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/profile-watchlist-series")
+async def get_view_profile_watchlist_series(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -844,14 +861,15 @@ async def get_view_profile_watchlist_series(data_type: str, token: str = Depends
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-watchlist-series-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-watchlist-series-view")
 
-# @app.get("/profile-watchlist-all/{data_type}")
+# @app.get("/profile-watchlist-all")
 
-@app.get("/profile-preferred-attribute/{data_type}")
-async def get_view_profile_preferred_attribute(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/profile-preferred-attribute")
+async def get_view_profile_preferred_attribute(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -864,12 +882,13 @@ async def get_view_profile_preferred_attribute(data_type: str, token: str = Depe
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile_preferred_attribute-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile_preferred_attribute-view")
 
-@app.get("/series-genre/{data_type}")
-async def get_view_series_genre(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/series-genre")
+async def get_view_series_genre(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -882,12 +901,13 @@ async def get_view_series_genre(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre-view")
 
-@app.get("/user-information/{data_type}")
-async def get_view_user_information(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/user-information")
+async def get_view_user_information(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -900,13 +920,14 @@ async def get_view_user_information(data_type: str, token: str = Depends(oauth2_
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "user-information-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user-information-view")
 
 #dbms error
-@app.get("/user-profile/{data_type}")
-async def get_view_user_profile(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/user-profile")
+async def get_view_user_profile(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -919,12 +940,13 @@ async def get_view_user_profile(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "user-profile-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user-profile-view")
 
-@app.get("/episode-view/{data_type}")
-async def get_view_episode_view(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/episode-view")
+async def get_view_episode_view(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -937,12 +959,13 @@ async def get_view_episode_view(data_type: str, token: str = Depends(oauth2_sche
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "view-episode-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "view-episode-view")
 
-@app.get("/film-view/{data_type}")
-async def get_view_film_view(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/film-view")
+async def get_view_film_view(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -955,14 +978,15 @@ async def get_view_film_view(data_type: str, token: str = Depends(oauth2_scheme)
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "view-film-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "view-film-view")
 
 #start preferred attributes
 
-@app.get("/preferred-attribute/{data_type}")
-async def get_preferred_attribute(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/preferred-attribute")
+async def get_preferred_attribute(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -975,12 +999,13 @@ async def get_preferred_attribute(data_type: str, token: str = Depends(oauth2_sc
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "preferred-attribute")
 
-@app.get("/preferred-attribute/{profile_id}/{data_type}")
-async def get_preferred_attribute_by_profile_id(profile_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/preferred-attribute/{profile_id}")
+async def get_preferred_attribute_by_profile_id(profile_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -996,8 +1021,9 @@ async def get_preferred_attribute_by_profile_id(profile_id: int, data_type: str,
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "preferred-attribute")
 
 @app.post("/preferred-attribute")
 async def insert_preferred_attribute(preferred_attribute_info: BaseModels.PreferredAttributeInfo, token: str = Depends(oauth2_scheme)):
@@ -1045,9 +1071,9 @@ async def delete_preferred_attribute(profile_id: int, attribute_id: int, token: 
 
 #start film genre
 
-@app.get("/film-genre/{data_type}")
-async def get_film_genre(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/film-genre")
+async def get_film_genre(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -1060,12 +1086,13 @@ async def get_film_genre(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-genre")
 
-@app.get("/film-genre/{film_id}/{data_type}")
-async def get_film_genre_by_film_id(film_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/film-genre/{film_id}")
+async def get_film_genre_by_film_id(film_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -1081,13 +1108,14 @@ async def get_film_genre_by_film_id(film_id: int, data_type: str, token: str = D
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-genre")
 
 
-@app.get("/genre-film/{attribute_id}/{data_type}")
-async def get_film_genre_by_attribute_id(attribute_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/genre-film/{attribute_id}")
+async def get_film_genre_by_attribute_id(attribute_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -1103,8 +1131,9 @@ async def get_film_genre_by_attribute_id(attribute_id: int, data_type: str, toke
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-genre")
 
 @app.post("/film-genre")
 async def insert_film_genre(film_genre_info: BaseModels.FilmGenreInfo, token: str = Depends(oauth2_scheme)):
@@ -1152,9 +1181,9 @@ async def delete_preferred_attribute(film_id: int, attribute_id: int, token: str
 
 #start series genre
 
-@app.get("/series-genre/{data_type}")
-async def get_series_genre(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/series-genre")
+async def get_series_genre(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -1167,13 +1196,14 @@ async def get_series_genre(data_type: str, token: str = Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
 
-@app.get("/series-genre/{series_id}/{data_type}")
-async def get_series_genre_by_series_id(series_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/series-genre/{series_id}")
+async def get_series_genre_by_series_id(series_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -1189,13 +1219,14 @@ async def get_series_genre_by_series_id(series_id: int, data_type: str, token: s
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
 
-@app.get("/genre-series/{attribute_id}/{data_type}")
-async def get_series_genre_by_attribute_id(attribute_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/genre-series/{attribute_id}")
+async def get_series_genre_by_attribute_id(attribute_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -1211,8 +1242,9 @@ async def get_series_genre_by_attribute_id(attribute_id: int, data_type: str, to
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
 
 @app.post("/series-genre")
@@ -1265,11 +1297,9 @@ async def delete_series_genre(series_id: int, attribute_id: int, token: str = De
 
 #TODO add an if statement ib sp to check if film_id or episode_id is null
 
-@app.get("/profile-film-overview/{view_id}/{profile_id}/{data_type}")
-def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str, film_id: int = Query(None), episode_id: int = Query(None), token: str = Depends(oauth2_scheme)):
+@app.get("/profile-film-overview/{view_id}/{profile_id}")
+def get_view_profile_film_overview(view_id: int, profile_id: str, accept: str = Header(default="application/json"), film_id: int = Query(None), episode_id: int = Query(None), token: str = Depends(oauth2_scheme)):
     id_to_paste = None
-
-    correct_data.validate_data_type(data_type)
 
     decode_token(token)
 
@@ -1293,11 +1323,12 @@ def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str
             else:
                 user_dict[column[0]] = row[idx]
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-film-overview-view")
 
-@app.get("/profile-film-overview/{data_type}")
-def get_view_profile_film_overview_all(data_type: str, token: str = Depends(oauth2_scheme)):
+@app.get("/profile-film-overview")
+def get_view_profile_film_overview_all(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     cursor.execute(f"EXEC [SelectFilmQuality];")
     rows = cursor.fetchall()
     result_list = []
@@ -1307,13 +1338,14 @@ def get_view_profile_film_overview_all(data_type: str, token: str = Depends(oaut
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-quality")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-quality")
 
 
-@app.get("/film-quality/{film_id}/{data_type}")
-async def get_film_quality_by_film_id(film_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/film-quality/{film_id}")
+async def get_film_quality_by_film_id(film_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -1329,14 +1361,14 @@ async def get_film_quality_by_film_id(film_id: int, data_type: str, token: str =
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
 
-@app.get("/quality-film/{quality_id}/{data_type}")
-async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/quality-film/{quality_id}")
+async def get_film_quality_by_quality_id(quality_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
     decode_token(token)
 
     cursor.execute(f"EXEC [SelectViewProfileFilmOverviewAll];")
@@ -1351,8 +1383,9 @@ async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token:
             else:
                 user_dict[column[0]] = row[idx]
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-film-overview-view")
 
 
 #cats
@@ -1377,9 +1410,9 @@ async def get_axoloti_onfo(token: str = Depends(oauth2_scheme)):
 
 #start film quality
 
-@app.get("/quality-film/{quality_id}/{data_type}")
-async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+@app.get("/quality-film/{quality_id}")
+async def get_film_quality_by_quality_id(quality_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    
 
     decode_token(token)
 
@@ -1395,9 +1428,9 @@ async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token:
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
-
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
 @app.post("/film-quality")
 async def insert_film_quality(film_quality_info: BaseModels.FilmQualityInfo, token: str = Depends(oauth2_scheme)):
@@ -1446,13 +1479,10 @@ async def delete_film_quality(film_id: int, quality_id: int, token: str = Depend
 # end film quality
 
 #Users start
-@app.get("/users/{data_type}")
-async def get_users(data_type: str, token: str =  Depends(oauth2_scheme)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+@app.get("/users")
+async def get_users(accept: str = Header(default="application/json"), token: str =  Depends(oauth2_scheme)):
 
     decode_token(token)
-    # End of the code that checks if the token is valid and if the data type is valid
 
     cursor.execute(f"EXECUTE SelectUser;")
     rows = cursor.fetchall()
@@ -1463,17 +1493,13 @@ async def get_users(data_type: str, token: str =  Depends(oauth2_scheme)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "user")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user")
 
-@app.get("/users/{id}/{data_type}")
-async def get_users_by_id(id: int, data_type: str, token: str =  Depends(oauth2_scheme)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+@app.get("/users/{id}")
+async def get_users_by_id(id: int, accept: str = Header(default="application/json"), token: str =  Depends(oauth2_scheme)):
+    decode_token(token)
 
     cursor.execute(f"EXECUTE SelectUserById @user_id = {id};")
     rows = cursor.fetchall()
@@ -1484,8 +1510,9 @@ async def get_users_by_id(id: int, data_type: str, token: str =  Depends(oauth2_
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "user")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user")
 
 @app.put("/users/{id}")
 async def put_users(id: int, update_user_info: BaseModels.UpdateUserInfo, token: str = Depends(oauth2_scheme)):
@@ -1513,14 +1540,10 @@ async def put_users(id: int, update_user_info: BaseModels.UpdateUserInfo, token:
     }
 
 @app.delete("/users/{id}")
-async def delete_users(id: int, token: str = Query(...)):
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def delete_users(id: int, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     try:
-
         query = """EXECUTE DeleteUser @user_id = ?;"""
         cursor.execute(query, id)
         conn.commit()
@@ -1537,14 +1560,9 @@ async def delete_users(id: int, token: str = Query(...)):
 
 #Dubbing start
 
-@app.get("/dubbings/{data_type}")
-async def get_dubbings(data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+@app.get("/dubbings")
+async def get_dubbings(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE SelectDubbing;"""
     cursor.execute(query)
@@ -1557,17 +1575,13 @@ async def get_dubbings(data_type: str, token: str = Query(...)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "dubbing")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "dubbing")
 
-@app.get("/dubbings/{dubbing_id}/{data_type}")
-async def get_dubbings_by_id(dubbing_id: int, data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+@app.get("/dubbings/{dubbing_id}")
+async def get_dubbings_by_id(dubbing_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE SelectDubbingById @dubbing_id = ?;"""
     cursor.execute(query, dubbing_id)
@@ -1580,21 +1594,19 @@ async def get_dubbings_by_id(dubbing_id: int, data_type: str, token: str = Query
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "dubbing")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "dubbing")
 
 @app.post("/dubbings")
-async def post_dubbings(language_id: int = Query(...), dubbing_company: str = Query(...), film_id: int = Query(None), episode_id: int = Query(None), token: str = Query(...)):
+async def post_dubbings(dubbing_info: BaseModels.DubbingInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
-
-    if (film_id is None and episode_id is None) or (film_id is not None and episode_id is not None):
+    if (dubbing_info.film_id is None and dubbing_info.episode_id is None) or (dubbing_info.film_id is not None and dubbing_info.episode_id is not None):
         raise HTTPException(status_code=400, detail="Wrong input")
 
     query = """EXECUTE InsertDubbing @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
-    cursor.execute(query, film_id, episode_id, language_id, dubbing_company)
+    cursor.execute(query, dubbing_info.film_id, dubbing_info.episode_id, dubbing_info.language_id, dubbing_info.dubbing_company)
     conn.commit()
 
     if cursor.rowcount <= 0:
@@ -1603,14 +1615,11 @@ async def post_dubbings(language_id: int = Query(...), dubbing_company: str = Qu
     return "Dubbing added successfully."
 
 @app.put("/dubbings/{dubbing_id}")
-async def put_dubbings(dubbing_id: int, language_id: int = Query(...), dubbing_company: str = Query(...), film_id: int = Query(None), episode_id: int = Query(None), token: str = Query(...)):
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def put_dubbings(dubbing_id: int, dubbing_info: BaseModels.DubbingInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE UpdateDubbing @dubbing_id = ?, @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
-    cursor.execute(query, dubbing_id, film_id, episode_id, language_id, dubbing_company)
+    cursor.execute(query, dubbing_id, dubbing_info.film_id, dubbing_info.episode_id, dubbing_info.language_id, dubbing_info.dubbing_company)
     conn.commit()
 
     if cursor.rowcount <= 0:
@@ -1619,11 +1628,8 @@ async def put_dubbings(dubbing_id: int, language_id: int = Query(...), dubbing_c
     return f"Dubbing with id = {dubbing_id} edited successfully."
 
 @app.delete("/dubbings/{dubbing_id}")
-async def delete_dubbings(dubbing_id: int, token: str = Query(...)):
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def delete_dubbings(dubbing_id: int, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE DeleteDubbing @dubbing_id = ?;"""
     cursor.execute(query, dubbing_id)
@@ -1638,14 +1644,9 @@ async def delete_dubbings(dubbing_id: int, token: str = Query(...)):
 
 #Series start
 
-@app.get("/series/{data_type}")
-async def get_series(data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+@app.get("/series")
+async def get_series(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE SelectSeries;"""
     cursor.execute(query)
@@ -1658,17 +1659,13 @@ async def get_series(data_type: str, token: str = Query(...)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series")
 
-@app.get("/series/{series_id}/{data_type}")
-async def get_series_by_id(series_id: int, data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+@app.get("/series/{series_id}")
+async def get_series_by_id(series_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE SelectSeriesById @series_id = ?;"""
     cursor.execute(query, series_id)
@@ -1681,20 +1678,16 @@ async def get_series_by_id(series_id: int, data_type: str, token: str = Query(..
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series")
 
 @app.post("/series")
-async def post_series(title: str, episode_amount: int, token: str = Query(...)):
-
-    print(title, episode_amount)
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def post_series(series_info: BaseModels.SeriesInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE InsertSeries @title = ?, @episodeAmount = ?;"""
-    cursor.execute(query, title, episode_amount)
+    cursor.execute(query, series_info.title, series_info.episode_amount)
     conn.commit()
 
     if cursor.rowcount <= 0:
@@ -1703,14 +1696,11 @@ async def post_series(title: str, episode_amount: int, token: str = Query(...)):
     return "Series added successfully."
 
 @app.put("/series/{series_id}")
-async def put_series(series_id: int, title: str, episode_amount: int, token: str = Query(...)):
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def put_series(series_id: int, series_info: BaseModels.SeriesInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE UpdateSeries @series_id = ?, @title = ?, @episodeAmount = ?;"""
-    cursor.execute(query, series_id, title, episode_amount)
+    cursor.execute(query, series_id, series_info.title, series_info.episode_amount)
     conn.commit()
 
     if cursor.rowcount <= 0:
@@ -1719,11 +1709,9 @@ async def put_series(series_id: int, title: str, episode_amount: int, token: str
     return f"Series with id = {series_id} edited successfully."
 
 @app.delete("/series/{series_id}")
-async def delete_series(series_id: int, token: str = Query(...)):
+async def delete_series(series_id: int, token: str = Depends(oauth2_scheme)):
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    decode_token(token)
 
     query = """EXECUTE DeleteSeries @series_id = ?;"""
     cursor.execute(query, series_id)
@@ -1738,14 +1726,9 @@ async def delete_series(series_id: int, token: str = Query(...)):
 
 #Subscription start
 
-@app.get("/subscriptions/{data_type}")
-async def get_subscriptions(data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+@app.get("/subscriptions")
+async def get_subscriptions(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE SelectSubscription;"""
     cursor.execute(query)
@@ -1758,13 +1741,15 @@ async def get_subscriptions(data_type: str, token: str = Query(...)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "subscription")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
-@app.get("/subscriptions/{subscription_id}/{data_type}")
-async def get_subscriptions_by_id(subscription_id: int, data_type: str, token: str = Query(...)):
+#TODO fix all other routes done by vlad
+@app.get("/subscriptions/{subscription_id}")
+async def get_subscriptions_by_id(subscription_id: int, accept: str = Header(default="application/json"), token: str = Query(...)):
     # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+    
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
@@ -1781,8 +1766,9 @@ async def get_subscriptions_by_id(subscription_id: int, data_type: str, token: s
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "subscription")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
 @app.post("/subscriptions")
 async def post_subscriptions(user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
@@ -1836,10 +1822,10 @@ async def delete_subscriptions(subscription_id: int, token: str = Query(...)):
 
 #Watchlist start
 
-@app.get("/watchlists/{data_type}")
-async def get_watchlists(data_type: str, token: str = Query(...)):
+@app.get("/watchlists")
+async def get_watchlists(accept: str = Header(default="application/json"), token: str = Query(...)):
     # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+    
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
@@ -1856,17 +1842,15 @@ async def get_watchlists(data_type: str, token: str = Query(...)):
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "watchlist_item")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "watchlist_item")
 
-@app.get("/watchlists/{watchlist_item_id}/{data_type}")
-async def get_watchlists_by_id(watchlist_item_id: int, data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+@app.get("/watchlists/{watchlist_item_id}")
+async def get_watchlists_by_id(watchlist_item_id: int, accept: str = Header(default="application/json"), token: str = Query(...)):
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
 
     query = """EXECUTE SelectWatchlist_ItemById @watchlist_item_id = ?;"""
     cursor.execute(query, watchlist_item_id)
@@ -1879,8 +1863,9 @@ async def get_watchlists_by_id(watchlist_item_id: int, data_type: str, token: st
         for idx, column in enumerate(cursor.description):
             user_dict[column[0]] = str(row[idx])
         result_list.append(user_dict)
+    response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "subscription")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
 @app.post("/watchlists")
 async def post_series(profile_id: int = Query(...), series_id: int = Query(None), film_id: int = Query(None), is_finished: bool = Query(...), token: str = Query(...)):
@@ -1890,7 +1875,6 @@ async def post_series(profile_id: int = Query(...), series_id: int = Query(None)
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
 
     query = """EXECUTE InsertWatchlist_Item @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
     cursor.execute(query, profile_id, series_id, film_id, is_finished)
@@ -1909,7 +1893,6 @@ async def put_series(watchlist_item_id: int, profile_id: int = Query(...), serie
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
 
     query = """EXECUTE UpdateWatchlist_Item @watchlist_item_id = ?, @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
     cursor.execute(query, watchlist_item_id, profile_id, series_id, film_id, is_finished)
@@ -1925,7 +1908,6 @@ async def delete_series(watchlist_item_id: int, token: str = Query(...)):
 
     if decode_token(token) == "token is invalid":
         raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
 
     query = """EXECUTE DeleteWatchlist_Item @watchlist_item_id = ?;"""
     cursor.execute(query, watchlist_item_id)

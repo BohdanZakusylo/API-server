@@ -4,7 +4,7 @@ import hashlib
 import requests
 import json
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, HTTPException, Depends, Header
+from fastapi import FastAPI, Query, HTTPException, Depends, Header, status
 from app.token_generator.token_validation import encode_token, decode_token, encode_refresh_token, decode_refresh_token
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.data_type_validation.data_validate import Correct_Data
@@ -42,7 +42,7 @@ async def main_page():
     return {"message": "Hello World", "status_code": 200, "message": "OK"}
 
 
-@app.post("/registration")
+@app.post("/registration", status_code=status.HTTP_201_CREATED)
 async def registration(registration_info: BaseModels.RegistrationIngfo):
     try:
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
@@ -52,6 +52,9 @@ async def registration(registration_info: BaseModels.RegistrationIngfo):
         conn.commit()
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Username and email should be unique")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=422, detail="Unprocessable Entity")
@@ -61,8 +64,7 @@ async def registration(registration_info: BaseModels.RegistrationIngfo):
     id = cursor.fetchone()[0]
 
     return {
-        "token": encode_token(id, registration_info.username),
-        "status_code": "200 OK"
+        "token": encode_token(id, registration_info.username)
     }
 
 @app.get("/login")
@@ -146,7 +148,7 @@ async def get_attributes_by_id(id: int, accept: str = Header(default="applicatio
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "attributes")
 
-@app.post("/attributes")
+@app.post("/attributes", status_code=status.HTTP_201_CREATED)
 async def insert_atributes(attribute_data: BaseModels.AttributesInfo, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
@@ -233,7 +235,7 @@ async def get_languages_by_id(id: int, accept: str = Header(default="application
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "languages")
 
-@app.post("/language")
+@app.post("/language", status_code=status.HTTP_201_CREATED)
 async def insert_languages(language_info: BaseModels.LanguageInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
         
@@ -244,6 +246,9 @@ async def insert_languages(language_info: BaseModels.LanguageInfo, token: str = 
 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Language name is incorrect")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Language inserted"}
 
@@ -319,7 +324,7 @@ async def get_profile_by_id(id: int, accept: str = Header(default="application/j
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile")
 
 
-@app.post("/profile")
+@app.post("/profile", status_code=status.HTTP_201_CREATED)
 async def insert_profile(profile_info: BaseModels.ProfileInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
     print(profile_info.user_id, profile_info.age, profile_info.nick_name, profile_info.profile_picture)
@@ -330,6 +335,9 @@ async def insert_profile(profile_info: BaseModels.ProfileInfo, token: str = Depe
 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Profile data is incorrect")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
     
     return {"message": "Profile inserted"}
 
@@ -408,7 +416,7 @@ async def get_film_by_id(id: int, accept: str = Header(default="application/json
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film")
 
-@app.post("/film")
+@app.post("/film", status_code=status.HTTP_201_CREATED)
 async def insert_film(film_info: BaseModels.FilmInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -419,6 +427,8 @@ async def insert_film(film_info: BaseModels.FilmInfo, token: str = Depends(oauth
     
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Film data is incorrect")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
     
     return {"message": "Film inserted"}
 
@@ -493,7 +503,7 @@ async def get_quality_by_id(id: int, accept: str = Header(default="application/j
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "quality")
 
-@app.post("/quality")
+@app.post("/quality", status_code=status.HTTP_201_CREATED)
 async def insert_quality(quality_info: BaseModels.QualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -504,6 +514,9 @@ async def insert_quality(quality_info: BaseModels.QualityInfo, token: str = Depe
     
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Quality data is incorrect")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
     
     return {"message": "Quality inserted"}
 
@@ -579,7 +592,7 @@ async def get_subtitle_by_id(id: int, accept: str = Header(default="application/
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subtitle")
 
-@app.post("/subtitle")
+@app.post("/subtitle", status_code=status.HTTP_201_CREATED)
 async def insert_subtitle(subtitle_info: BaseModels.SubtitleInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -590,6 +603,9 @@ async def insert_subtitle(subtitle_info: BaseModels.SubtitleInfo, token: str = D
     
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Subtitle data is incorrect")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
     
     return {"message": "Subtitle inserted"}
 
@@ -664,7 +680,7 @@ async def get_episode_by_id(id: int, accept: str = Header(default="application/j
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "episode")
 
-@app.post("/episode")
+@app.post("/episode", status_code=status.HTTP_201_CREATED)
 async def insert_episode(episode_info: BaseModels.EpisodeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -675,6 +691,9 @@ async def insert_episode(episode_info: BaseModels.EpisodeInfo, token: str = Depe
     
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Episode data is incorrect")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
     
     return {"message": "Episode inserted"}
 
@@ -1042,7 +1061,7 @@ async def get_preferred_attribute_by_profile_id(profile_id: int, accept: str = H
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "preferred-attribute")
 
-@app.post("/preferred-attribute")
+@app.post("/preferred-attribute", status_code=status.HTTP_201_CREATED)
 async def insert_preferred_attribute(preferred_attribute_info: BaseModels.PreferredAttributeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1053,6 +1072,9 @@ async def insert_preferred_attribute(preferred_attribute_info: BaseModels.Prefer
 
     except pyodbc.IntegrityError as e:
         raise HTTPException(status_code=400, detail=f"IntegrityError occurred: {e}")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Preferred attribute inserted"}
 
@@ -1152,7 +1174,7 @@ async def get_film_genre_by_attribute_id(attribute_id: int, accept: str = Header
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-genre")
 
-@app.post("/film-genre")
+@app.post("/film-genre", status_code=status.HTTP_201_CREATED)
 async def insert_film_genre(film_genre_info: BaseModels.FilmGenreInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1163,6 +1185,9 @@ async def insert_film_genre(film_genre_info: BaseModels.FilmGenreInfo, token: st
 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Invalid input. Input should be integer.")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Film genre inserted"}
 
@@ -1264,7 +1289,7 @@ async def get_series_genre_by_attribute_id(attribute_id: int, accept: str = Head
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
 
-@app.post("/series-genre")
+@app.post("/series-genre", status_code=status.HTTP_201_CREATED)
 async def insert_series_genre(series_genre_info: BaseModels.SeriesGenerInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1275,6 +1300,9 @@ async def insert_series_genre(series_genre_info: BaseModels.SeriesGenerInfo, tok
 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Invalid input. Input should be integer.")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Series genre inserted"}
 
@@ -1446,7 +1474,7 @@ async def get_film_quality_by_quality_id(quality_id: int, accept: str = Header(d
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
-@app.post("/film-quality")
+@app.post("/film-quality", status_code=status.HTTP_201_CREATED)
 async def insert_film_quality(film_quality_info: BaseModels.FilmQualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1456,7 +1484,10 @@ async def insert_film_quality(film_quality_info: BaseModels.FilmQualityInfo, tok
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Invalid input. Input should be integer.")
+        raise HTTPException(status_code=400, detail="Invalid input")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Film quality inserted"}
 
@@ -1612,19 +1643,23 @@ async def get_dubbings_by_id(dubbing_id: int, accept: str = Header(default="appl
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "dubbing")
 
-@app.post("/dubbings")
+@app.post("/dubbings", status_code=status.HTTP_201_CREATED)
 async def post_dubbings(dubbing_info: BaseModels.DubbingInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
     if (dubbing_info.film_id is None and dubbing_info.episode_id is None) or (dubbing_info.film_id is not None and dubbing_info.episode_id is not None):
         raise HTTPException(status_code=400, detail="Wrong input")
 
-    query = """EXECUTE InsertDubbing @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
-    cursor.execute(query, dubbing_info.film_id, dubbing_info.episode_id, dubbing_info.language_id, dubbing_info.dubbing_company)
-    conn.commit()
-
+    try:
+        query = """EXECUTE InsertDubbing @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
+        cursor.execute(query, dubbing_info.film_id, dubbing_info.episode_id, dubbing_info.language_id, dubbing_info.dubbing_company)
+        conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Wrong input")
+    
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
+    
 
     return "Dubbing added successfully."
 
@@ -1696,13 +1731,16 @@ async def get_series_by_id(series_id: int, accept: str = Header(default="applica
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series")
 
-@app.post("/series")
+@app.post("/series", status_code=status.HTTP_201_CREATED)
 async def post_series(series_info: BaseModels.SeriesInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    query = """EXECUTE InsertSeries @title = ?, @episodeAmount = ?;"""
-    cursor.execute(query, series_info.title, series_info.episode_amount)
-    conn.commit()
+    try:
+        query = """EXECUTE InsertSeries @title = ?, @episodeAmount = ?;"""
+        cursor.execute(query, series_info.title, series_info.episode_amount)
+        conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Wrong input")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1713,9 +1751,12 @@ async def post_series(series_info: BaseModels.SeriesInfo, token: str = Depends(o
 async def put_series(series_id: int, series_info: BaseModels.SeriesInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    query = """EXECUTE UpdateSeries @series_id = ?, @title = ?, @episodeAmount = ?;"""
-    cursor.execute(query, series_id, series_info.title, series_info.episode_amount)
-    conn.commit()
+    try:
+        query = """EXECUTE UpdateSeries @series_id = ?, @title = ?, @episodeAmount = ?;"""
+        cursor.execute(query, series_id, series_info.title, series_info.episode_amount)
+        conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Wrong input")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1779,13 +1820,16 @@ async def get_subscriptions_by_id(subscription_id: int, accept: str = Header(def
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
-@app.post("/subscriptions")
+@app.post("/subscriptions", status_code=status.HTTP_201_CREATED)
 async def post_subscriptions(subscription_info: BaseModels.SubscriptionInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    query = """EXECUTE InsertSubscription @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
-    cursor.execute(query, subscription_info.user_id, subscription_info.type, subscription_info.price, subscription_info.start_date, subscription_info.expiration_date, subscription_info.is_discount)
-    conn.commit()
+    try:
+        query = """EXECUTE InsertSubscription @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
+        cursor.execute(query, subscription_info.user_id, subscription_info.type, subscription_info.price, subscription_info.start_date, subscription_info.expiration_date, subscription_info.is_discount)
+        conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Wrong input")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1860,15 +1904,19 @@ async def get_watchlists_by_id(watchlist_item_id: int, accept: str = Header(defa
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
-@app.post("/watchlists")
+@app.post("/watchlists", status_code=status.HTTP_201_CREATED)
 async def post_watchlist_item(watchlist_item_info: BaseModels.WatchlistItemInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
     if (watchlist_item_info.film_id is None and watchlist_item_info.series_id is None) or (watchlist_item_info.film_id is not None and watchlist_item_info.series_id is not None):
         raise HTTPException(status_code=400, detail="Wrong input")
 
-    query = """EXECUTE InsertWatchlist_Item @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
-    cursor.execute(query, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
-    conn.commit()
+    try:
+        query = """EXECUTE InsertWatchlist_Item @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
+        cursor.execute(query, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Wrong input")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")

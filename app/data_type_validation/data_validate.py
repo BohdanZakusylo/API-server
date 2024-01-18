@@ -13,7 +13,7 @@ class Correct_Data:
 
     def validate_data_type(self, data_type):
         if data_type not in ACCEPTED_DATA_TYPES:
-            raise HTTPException(status_code=404, detail="data type is invalid")
+            raise HTTPException(status_code=422, detail="data type is invalid")
         return data_type
 
     def return_correct_format(self, data_dict, data_type, entity):

@@ -1310,9 +1310,6 @@ async def delete_series_genre(series_id: int, attribute_id: int, token: str = De
 # end series genre
 
 #start film quality
-
-#TODO add an if statement ib sp to check if film_id or episode_id is null
-
 @app.get("/profile-film-overview/{view_id}/{profile_id}")
 def get_view_profile_film_overview(view_id: int, profile_id: str, accept: str = Header(default="application/json"), film_id: int = Query(None), episode_id: int = Query(None), token: str = Depends(oauth2_scheme)):
     id_to_paste = None
@@ -1763,13 +1760,8 @@ async def get_subscriptions(accept: str = Header(default="application/json"), to
 
 #TODO fix all other routes done by vlad
 @app.get("/subscriptions/{subscription_id}")
-async def get_subscriptions_by_id(subscription_id: int, accept: str = Header(default="application/json"), token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def get_subscriptions_by_id(subscription_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE SelectSubscriptionById @subscription_id = ?;"""
     cursor.execute(query, subscription_id)
@@ -1787,14 +1779,11 @@ async def get_subscriptions_by_id(subscription_id: int, accept: str = Header(def
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
 @app.post("/subscriptions")
-async def post_subscriptions(user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def post_subscriptions(subscription_info: BaseModels.SubscriptionInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE InsertSubscription @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
-    cursor.execute(query, user_id, type, price, start_date, expiration_date, is_discount)
+    cursor.execute(query, subscription_info.user_id, subscription_info.type, subscription_info.price, subscription_info.start_date, subscription_info.expiration_date, subscription_info.is_discount)
     conn.commit()
 
     if cursor.rowcount <= 0:
@@ -1803,14 +1792,11 @@ async def post_subscriptions(user_id: int, type: str, price: float, start_date: 
     return "Subscription added successfully."
 
 @app.put("/subscriptions/{subscription_id}")
-async def put_subscriptions(subscription_id: int, user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def put_subscriptions(subscription_id: int, subscription_info: BaseModels.SubscriptionInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE UpdateSubscription @subscription_id = ?, @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
-    cursor.execute(query, subscription_id, user_id, type, price, start_date, expiration_date, is_discount)
+    cursor.execute(query, subscription_id, subscription_info.user_id, subscription_info.type, subscription_info.price, subscription_info.start_date, subscription_info.expiration_date, subscription_info.is_discount)
     conn.commit()
 
     if cursor.rowcount <= 0:
@@ -1819,11 +1805,8 @@ async def put_subscriptions(subscription_id: int, user_id: int, type: str, price
     return f"Subscription with id = {subscription_id} edited successfully."
 
 @app.delete("/subscriptions/{subscription_id}")
-async def delete_subscriptions(subscription_id: int, token: str = Query(...)):
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def delete_subscriptions(subscription_id: int, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE DeleteSubscription @subscription_id = ?;"""
     cursor.execute(query, subscription_id)
@@ -1839,13 +1822,8 @@ async def delete_subscriptions(subscription_id: int, token: str = Query(...)):
 #Watchlist start
 
 @app.get("/watchlists")
-async def get_watchlists(accept: str = Header(default="application/json"), token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def get_watchlists(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE SelectWatchlist_Item;"""
     cursor.execute(query)
@@ -1863,10 +1841,8 @@ async def get_watchlists(accept: str = Header(default="application/json"), token
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "watchlist_item")
 
 @app.get("/watchlists/{watchlist_item_id}")
-async def get_watchlists_by_id(watchlist_item_id: int, accept: str = Header(default="application/json"), token: str = Query(...)):
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
+async def get_watchlists_by_id(watchlist_item_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     query = """EXECUTE SelectWatchlist_ItemById @watchlist_item_id = ?;"""
     cursor.execute(query, watchlist_item_id)
@@ -1884,16 +1860,13 @@ async def get_watchlists_by_id(watchlist_item_id: int, accept: str = Header(defa
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
 @app.post("/watchlists")
-async def post_series(profile_id: int = Query(...), series_id: int = Query(None), film_id: int = Query(None), is_finished: bool = Query(...), token: str = Query(...)):
-
-    if (film_id is None and series_id is None) or (film_id is not None and series_id is not None):
+async def post_watchlist_item(watchlist_item_info: BaseModels.WatchlistItemInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
+    if (watchlist_item_info.film_id is None and watchlist_item_info.series_id is None) or (watchlist_item_info.film_id is not None and watchlist_item_info.series_id is not None):
         raise HTTPException(status_code=400, detail="Wrong input")
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-
     query = """EXECUTE InsertWatchlist_Item @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
-    cursor.execute(query, profile_id, series_id, film_id, is_finished)
+    cursor.execute(query, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
     conn.commit()
 
     if cursor.rowcount <= 0:
@@ -1902,16 +1875,15 @@ async def post_series(profile_id: int = Query(...), series_id: int = Query(None)
     return "Watchlist item added successfully."
 
 @app.put("/watchlists/{watchlist_item_id}")
-async def put_series(watchlist_item_id: int, profile_id: int = Query(...), series_id: int = Query(None), film_id: int = Query(None), is_finished: bool = Query(...), token: str = Query(...)):
+async def put_series(watchlist_item_id: int, watchlist_item_info: BaseModels.WatchlistItemInfo, token: str = Depends(oauth2_scheme)):
 
-    if (film_id is None and series_id is None) or (film_id is not None and series_id is not None):
+    if (watchlist_item_info.film_id is None and watchlist_item_info.series_id is None) or (watchlist_item_info.film_id is not None and watchlist_item_info.series_id is not None):
         raise HTTPException(status_code=400, detail="Wrong input")
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
+    decode_token(token)
 
     query = """EXECUTE UpdateWatchlist_Item @watchlist_item_id = ?, @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
-    cursor.execute(query, watchlist_item_id, profile_id, series_id, film_id, is_finished)
+    cursor.execute(query, watchlist_item_id, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
     conn.commit()
 
     if cursor.rowcount <= 0:
@@ -1920,10 +1892,9 @@ async def put_series(watchlist_item_id: int, profile_id: int = Query(...), serie
     return f"Watchlist item with id = {watchlist_item_id} edited successfully."
 
 @app.delete("/watchlists/{watchlist_item_id}")
-async def delete_series(watchlist_item_id: int, token: str = Query(...)):
+async def delete_series(watchlist_item_id: int, token: str = Depends(oauth2_scheme)):
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
+    decode_token(token)
 
     query = """EXECUTE DeleteWatchlist_Item @watchlist_item_id = ?;"""
     cursor.execute(query, watchlist_item_id)

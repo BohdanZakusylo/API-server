@@ -34,16 +34,16 @@ def decode_token(token: str):
         decoded_token = jwt.decode(token, public_key, algorithms=["RS256"])
 
         if decoded_token["expiration_time"] < datetime.utcnow().timestamp():
-             raise HTTPException(status_code=404, detail="token is expired")
+             raise HTTPException(status_code=401, detail="token is expired")
         
         if "type" in decoded_token:
-            raise HTTPException(status_code=404, detail="resfresh token is not allowed")
+            raise HTTPException(status_code=401, detail="resfresh token is not allowed")
 
     except jwt.exceptions.DecodeError:
-        raise HTTPException(status_code=404, detail="token is invalid")
+        raise HTTPException(status_code=401, detail="token is invalid")
     
     except KeyError:
-        raise HTTPException(status_code=404, detail="token is invalid")
+        raise HTTPException(status_code=401, detail="token is invalid")
 
     return decoded_token
 
@@ -64,13 +64,13 @@ def decode_refresh_token(token: str):
         decoded_token = jwt.decode(token, public_key, algorithms=["RS256"])
 
         if decoded_token["expiration_time"] < datetime.utcnow().timestamp():
-             raise HTTPException(status_code=404, detail="token is expired")
+             raise HTTPException(status_code=401, detail="token is expired")
 
     except jwt.exceptions.DecodeError:
-        raise HTTPException(status_code=404, detail="token is invalid")
+        raise HTTPException(status_code=401, detail="token is invalid")
     
     except KeyError:
-        raise HTTPException(status_code=404, detail="token is invalid")
+        raise HTTPException(status_code=401, detail="token is invalid")
 
     return decoded_token    
 

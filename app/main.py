@@ -14,7 +14,6 @@ from app.base_classes.base_classes import BaseModels
 from typing import Optional
 
 
-ACCEPTED_DATA_TYPES = ["xml", "json"]
 correct_data = Correct_Data()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -95,7 +94,6 @@ def get_token_by_refresh_token(refresh_token: str = Depends(oauth2_scheme)):
 
 @app.get("/attributes")
 async def get_attributes(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
-    print(accept)
     decode_token(token)
     
     cursor.execute(f"EXEC [SelectAtribute];")
@@ -183,7 +181,6 @@ async def delete_attributes(id: int, token: str = Depends(oauth2_scheme)):
 @app.get("/language")
 async def get_languages(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     
-
     decode_token(token)
     
     cursor.execute(f"EXEC [SelectLanguage];")

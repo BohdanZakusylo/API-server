@@ -327,7 +327,7 @@ async def get_profile_by_id(id: int, accept: str = Header(default="application/j
 @app.post("/profile", status_code=status.HTTP_201_CREATED)
 async def insert_profile(profile_info: BaseModels.ProfileInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
-    print(profile_info.user_id, profile_info.age, profile_info.nick_name, profile_info.profile_picture)
+    
     try:
         query = f"EXEC [InsertProfile] @user_id = ?, @age = ?, @nick_name = ?, @profile_picture = ?;"
         cursor.execute(query, profile_info.user_id, profile_info.age, profile_info.nick_name, profile_info.profile_picture)

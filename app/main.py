@@ -163,7 +163,7 @@ async def insert_atributes(attribute_data: BaseModels.AttributesInfo, token: str
     
     return {"message": "Atribute inserted"}
 
-@app.put("/attributes/{id}")
+@app.put("/attributes/{id}", status_code=status.HTTP_200_OK)
 async def update_attributes(id: int, attribute_info: BaseModels.AttributesInfo, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
@@ -174,7 +174,10 @@ async def update_attributes(id: int, attribute_info: BaseModels.AttributesInfo, 
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Attributes naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Atribute updated"}
 
@@ -252,7 +255,7 @@ async def insert_languages(language_info: BaseModels.LanguageInfo, token: str = 
 
     return {"message": "Language inserted"}
 
-@app.put("/language/{id}")
+@app.put("/language/{id}", status_code=status.HTTP_200_OK)
 async def update_languages(id: int, language_info: BaseModels.LanguageInfo, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
@@ -263,7 +266,10 @@ async def update_languages(id: int, language_info: BaseModels.LanguageInfo, toke
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Language naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Language updated"}
 
@@ -342,7 +348,7 @@ async def insert_profile(profile_info: BaseModels.ProfileInfo, token: str = Depe
     return {"message": "Profile inserted"}
 
 
-@app.put("/profile/{id}")
+@app.put("/profile/{id}", status_code=status.HTTP_200_OK)
 async def update_profile(id: int, profile_info: BaseModels.ProfileInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -352,7 +358,10 @@ async def update_profile(id: int, profile_info: BaseModels.ProfileInfo, token: s
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Profile data is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Profile updated"}
 
@@ -432,7 +441,7 @@ async def insert_film(film_info: BaseModels.FilmInfo, token: str = Depends(oauth
     
     return {"message": "Film inserted"}
 
-@app.put("/film/{id}")
+@app.put("/film/{id}", status_code=status.HTTP_200_OK)
 async def update_film(id: int, film_info: BaseModels.FilmInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -442,7 +451,10 @@ async def update_film(id: int, film_info: BaseModels.FilmInfo, token: str = Depe
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Film data is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Film updated"}
 
@@ -521,7 +533,7 @@ async def insert_quality(quality_info: BaseModels.QualityInfo, token: str = Depe
     return {"message": "Quality inserted"}
 
 
-@app.put("/quality/{id}")
+@app.put("/quality/{id}", status_code=status.HTTP_200_OK)
 async def update_quality(id: int, quality_info: BaseModels.QualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -531,7 +543,10 @@ async def update_quality(id: int, quality_info: BaseModels.QualityInfo, token: s
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Quality data is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Quality updated"}
 
@@ -609,7 +624,7 @@ async def insert_subtitle(subtitle_info: BaseModels.SubtitleInfo, token: str = D
     
     return {"message": "Subtitle inserted"}
 
-@app.put("/subtitle/{id}")
+@app.put("/subtitle/{id}", status_code=status.HTTP_200_OK)
 async def update_subtitle(id: int, subtitle_info: BaseModels.SubtitleInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -619,7 +634,10 @@ async def update_subtitle(id: int, subtitle_info: BaseModels.SubtitleInfo, token
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Subtitle data is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Subtitle updated"}
 
@@ -698,7 +716,7 @@ async def insert_episode(episode_info: BaseModels.EpisodeInfo, token: str = Depe
     return {"message": "Episode inserted"}
 
 
-@app.put("/episode/{id}")
+@app.put("/episode/{id}", status_code=status.HTTP_200_OK)
 async def update_episode(id: int, episode_info: BaseModels.EpisodeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -708,7 +726,10 @@ async def update_episode(id: int, episode_info: BaseModels.EpisodeInfo, token: s
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Episode data is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Episode updated"}
 
@@ -1078,7 +1099,7 @@ async def insert_preferred_attribute(preferred_attribute_info: BaseModels.Prefer
 
     return {"message": "Preferred attribute inserted"}
 
-@app.put("/preferred-attribute/{profile_id}-{attribute_id}")
+@app.put("/preferred-attribute/{profile_id}-{attribute_id}", status_code=status.HTTP_200_OK)
 async def update_preferred_attributes(profile_id: int, attribute_id: int, preferred_attribute_info: BaseModels.PreferredAttributeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1088,7 +1109,10 @@ async def update_preferred_attributes(profile_id: int, attribute_id: int, prefer
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Preferred attributes naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Preferred attribute updated"}
 
@@ -1191,7 +1215,7 @@ async def insert_film_genre(film_genre_info: BaseModels.FilmGenreInfo, token: st
 
     return {"message": "Film genre inserted"}
 
-@app.put("/film-genre/{film_id}-{attribute_id}")
+@app.put("/film-genre/{film_id}-{attribute_id}", status_code=status.HTTP_200_OK)
 async def update_preferred_attributes(film_id: int, attribute_id: int, film_genre_info: BaseModels.FilmGenreInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1201,7 +1225,10 @@ async def update_preferred_attributes(film_id: int, attribute_id: int, film_genr
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Film genre naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Film genre updated"}
 
@@ -1307,7 +1334,7 @@ async def insert_series_genre(series_genre_info: BaseModels.SeriesGenerInfo, tok
     return {"message": "Series genre inserted"}
 
 
-@app.put("/series-genre/{series_id}-{attribute_id}")
+@app.put("/series-genre/{series_id}-{attribute_id}", status_code=status.HTTP_200_OK)
 async def update_series_genre(series_id: int, attribute_id: int, series_genre_info: BaseModels.SeriesGenerInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1317,7 +1344,10 @@ async def update_series_genre(series_id: int, attribute_id: int, series_genre_in
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Series genre naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message": "Series genre updated"}
 
@@ -1492,7 +1522,7 @@ async def insert_film_quality(film_quality_info: BaseModels.FilmQualityInfo, tok
     return {"message": "Film quality inserted"}
 
 
-@app.put("/film-quality/{film_id}-{quality_id}")
+@app.put("/film-quality/{film_id}-{quality_id}", status_code=status.HTTP_200_OK)
 async def update_film_quality(film_id: int, quality_id: int, film_quality_info: BaseModels.FilmQualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1502,7 +1532,10 @@ async def update_film_quality(film_id: int, quality_id: int, film_quality_info: 
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Film quality naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     return {"message:" "Film quality updated"}
 
@@ -1559,7 +1592,7 @@ async def get_users_by_id(id: int, accept: str = Header(default="application/jso
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user")
 
-@app.put("/users/{id}")
+@app.put("/users/{id}", status_code=status.HTTP_200_OK)
 async def put_users(id: int, update_user_info: BaseModels.UpdateUserInfo, token: str = Depends(oauth2_scheme)):
     #TODO check if user wants to update itself
     decode_token(token)
@@ -1571,10 +1604,13 @@ async def put_users(id: int, update_user_info: BaseModels.UpdateUserInfo, token:
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Email should be unique")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     cursor.execute(f"EXECUTE SelectUserById @user_id = {id};")
 
@@ -1663,16 +1699,23 @@ async def post_dubbings(dubbing_info: BaseModels.DubbingInfo, token: str = Depen
 
     return "Dubbing added successfully."
 
-@app.put("/dubbings/{dubbing_id}")
+@app.put("/dubbings/{dubbing_id}", status_code=status.HTTP_200_OK)
 async def put_dubbings(dubbing_id: int, dubbing_info: BaseModels.DubbingInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    query = """EXECUTE UpdateDubbing @dubbing_id = ?, @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
-    cursor.execute(query, dubbing_id, dubbing_info.film_id, dubbing_info.episode_id, dubbing_info.language_id, dubbing_info.dubbing_company)
-    conn.commit()
+    try:
+        query = """EXECUTE UpdateDubbing @dubbing_id = ?, @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
+        cursor.execute(query, dubbing_id, dubbing_info.film_id, dubbing_info.episode_id, dubbing_info.language_id, dubbing_info.dubbing_company)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     return f"Dubbing with id = {dubbing_id} edited successfully."
 
@@ -1755,11 +1798,15 @@ async def put_series(series_id: int, series_info: BaseModels.SeriesInfo, token: 
         query = """EXECUTE UpdateSeries @series_id = ?, @title = ?, @episodeAmount = ?;"""
         cursor.execute(query, series_id, series_info.title, series_info.episode_amount)
         conn.commit()
+
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     return f"Series with id = {series_id} edited successfully."
 
@@ -1836,16 +1883,22 @@ async def post_subscriptions(subscription_info: BaseModels.SubscriptionInfo, tok
 
     return "Subscription added successfully."
 
-@app.put("/subscriptions/{subscription_id}")
+@app.put("/subscriptions/{subscription_id}", status_code=status.HTTP_200_OK)
 async def put_subscriptions(subscription_id: int, subscription_info: BaseModels.SubscriptionInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
+    try:
+        query = """EXECUTE UpdateSubscription @subscription_id = ?, @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
+        cursor.execute(query, subscription_id, subscription_info.user_id, subscription_info.type, subscription_info.price, subscription_info.start_date, subscription_info.expiration_date, subscription_info.is_discount)
+        conn.commit()
 
-    query = """EXECUTE UpdateSubscription @subscription_id = ?, @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
-    cursor.execute(query, subscription_id, subscription_info.user_id, subscription_info.type, subscription_info.price, subscription_info.start_date, subscription_info.expiration_date, subscription_info.is_discount)
-    conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     return f"Subscription with id = {subscription_id} edited successfully."
 
@@ -1923,7 +1976,7 @@ async def post_watchlist_item(watchlist_item_info: BaseModels.WatchlistItemInfo,
 
     return "Watchlist item added successfully."
 
-@app.put("/watchlists/{watchlist_item_id}")
+@app.put("/watchlists/{watchlist_item_id}", status_code=status.HTTP_200_OK)
 async def put_series(watchlist_item_id: int, watchlist_item_info: BaseModels.WatchlistItemInfo, token: str = Depends(oauth2_scheme)):
 
     if (watchlist_item_info.film_id is None and watchlist_item_info.series_id is None) or (watchlist_item_info.film_id is not None and watchlist_item_info.series_id is not None):
@@ -1931,12 +1984,19 @@ async def put_series(watchlist_item_id: int, watchlist_item_info: BaseModels.Wat
 
     decode_token(token)
 
-    query = """EXECUTE UpdateWatchlist_Item @watchlist_item_id = ?, @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
-    cursor.execute(query, watchlist_item_id, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
-    conn.commit()
+    try:
+        query = """EXECUTE UpdateWatchlist_Item @watchlist_item_id = ?, @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
+        cursor.execute(query, watchlist_item_id, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     return f"Watchlist item with id = {watchlist_item_id} edited successfully."
 

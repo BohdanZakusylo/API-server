@@ -64,3 +64,13 @@ class BaseModels:
         language_id: int
         is_activated: int
         is_blocked: int
+
+    class DubbingInfo(BaseModel):
+        language_id: int
+        dubbing_company: str
+        film_id: int = None
+        episode_id: int = None
+
+    class SeriesInfo(BaseModel):
+        title: str
+        episode_amount: int

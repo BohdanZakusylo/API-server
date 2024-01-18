@@ -46,9 +46,7 @@ async def main_page():
 async def registration(registration_info: BaseModels.RegistrationIngfo):
     try:
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
-        password_bytes = registration_info.password.encode('utf-8')
-        hashed_password = hashlib.sha256(password_bytes).hexdigest()
-        cursor.execute(query, registration_info.email, hashed_password, registration_info.username, registration_info.age)
+        cursor.execute(query, registration_info.email, registration_info.password, registration_info.username, registration_info.age)
         conn.commit()
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Username and email should be unique")
@@ -70,18 +68,26 @@ async def registration(registration_info: BaseModels.RegistrationIngfo):
 @app.get("/login")
 async def login(login_info: BaseModels.LoginInfo):
     try:
-        query = """SELECT [user].user_id FROM [user] WHERE [user].email = ? AND [user].password = ?;"""
-        password = login_info.password.encode('utf-8')
-        hashed_password_bytes = hashlib.sha256(password).digest()
-        print(hashed_password_bytes)
-        cursor.execute(query, login_info.email, hashed_password_bytes)
-        user_id = cursor.fetchone()[0]
+        query = """EXEC [CheckUserPassword] @email = ?, @password = ?;"""
+        cursor.execute(query, login_info.email, login_info.password)
+        result = cursor.fetchone()[0]
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return {
-        "token": encode_token(user_id, login_info.email)
-    }
+    if not result:
+        raise HTTPException(status_code=401, detail="Wrong email or password")
+    else:
+        query = """EXEC [GetCredential] @email = ?"""
+        cursor.execute(query, login_info.email)
+        rows = cursor.fetchall()
+        result_list = []
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"data": result_list, "token": encode_token(int(result_list[0].get('user_id', 0)), login_info.email)}
+        return response
 
 @app.get("/refresh-token")
 def get_refresh_token_by_token(token: str = Depends(oauth2_scheme)):

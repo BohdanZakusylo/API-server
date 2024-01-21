@@ -44,22 +44,32 @@ async def main_page():
 
 @app.post("/registration", status_code=status.HTTP_201_CREATED)
 async def registration(registration_info: BaseModels.RegistrationIngfo):
+    connectionString_reg = f'DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={SERVER};DATABASE={DATABASE};UID=NetflixApplication;PWD=netflix;TrustServerCertificate=yes'
+
+    conn_reg = pyodbc.connect(connectionString_reg)
+    cursor_reg = conn_reg.cursor()
+
     try:
+        print(cursor_reg)
+
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
-        cursor.execute(query, registration_info.email, registration_info.password, registration_info.username, registration_info.age)
-        conn.commit()
+        cursor_reg.execute(query, registration_info.email, registration_info.password, registration_info.username, registration_info.age)
+        conn_reg.commit()
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Username and email should be unique")
     
     except Exception as e:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-    if cursor.rowcount <= 0:
+    if cursor_reg.rowcount <= 0:
         raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
-    cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{registration_info.email}';")
+    cursor_reg.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{registration_info.email}';")
 
-    id = cursor.fetchone()[0]
+    id = cursor_reg.fetchone()[0]
+
+    cursor_reg.close()
+    conn_reg.close()
 
     return {
         "token": encode_token(id, registration_info.username)

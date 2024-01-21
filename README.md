@@ -1,18 +1,30 @@
-# API-server
-## Start
+# API-Server
 
-`python(python3) -m venv .venv`
+## Getting Started:
+### Prerequisites:
+- Python (version 3.9 or higher)
+- pip
 
-### Mac
+### Setup the virtual environment
 
+`python -m venv .venv`
+
+### For Mac
+# Activate the virtual environment
 `source .venv/bin/activate`   
 `touch .env`  
 `cp .env.dist .env`
 
-### Windows
+### For Windows
+# Activate the virtual environment
 `.venv\Scripts\activate`
 `make the .env file and copy everything from .env.dist to .env`
-    
 
+### Install Dependencies:
 `pip install -r requirements.txt`
-`uvicorn app.main:app --reload` 
+
+Put certificate and key files into config/server-keys/
+
+Run the server:
+`hypercorn app.main:app --keyfile config/server-keys/key.pem --certfile config/server-keys/cert.pem`
+`uvicorn app.main:app --reload`

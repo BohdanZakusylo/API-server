@@ -3,15 +3,16 @@ import pyodbc
 import hashlib
 import requests
 import json
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, HTTPException, Depends, Header, status
 from app.token_generator.token_validation import encode_token, decode_token, encode_refresh_token, decode_refresh_token
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.data_type_validation.data_validate import Correct_Data
 from bs4 import BeautifulSoup
-from datetime import datetime
 from app.base_classes.base_classes import BaseModels
 from typing import Optional
+from datetime import datetime
 
 
 correct_data = Correct_Data()
@@ -1810,7 +1811,6 @@ async def get_film_quality_by_film_id(film_id: int, accept: str = Header(default
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
-
 @app.get("/quality-film/{quality_id}")
 async def get_film_quality_by_quality_id(quality_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
@@ -2542,3 +2542,46 @@ async def delete_watchlist_item(watchlist_item_id: int, token: str = Depends(oau
         raise HTTPException(status_code=400, detail="Wrong input")
 
     return f"Watchlist item with id = {watchlist_item_id} deleted successfully."
+
+@app.get("/dubbings-languages/{language_id}")
+async def get_dubbing_by_language_id(language_id: int, token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+
+    try:
+
+        query = """EXECUTE SelectDubbingByLanguageId @language_id = ?;"""
+        cursor.execute(query, language_id)
+
+    except pyodbc.IntegrityError as e:
+        print(e)
+
+    rows = cursor.fetchall()
+
+    return len(rows)
+
+@app.get("/registration-info")
+async def get_registration_info(token: str = Query(...)):
+
+    if decode_token(token) == "token is invalid":
+        raise HTTPException(status_code=401, detail="token is invalid")
+
+    try:
+
+        query = """EXECUTE SelectRegistrationInfo;"""
+        cursor.execute(query)
+
+    except pyodbc.IntegrityError as e:
+        print(e)
+
+    rows = cursor.fetchall()
+    result_list = []
+
+    for row in rows:
+        user_dict = {}
+        for idx, column in enumerate(cursor.description):
+            user_dict[column[0]] = str(row[idx])
+        result_list.append(user_dict)
+
+    return result_list

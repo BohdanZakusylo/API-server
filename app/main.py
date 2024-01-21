@@ -1380,9 +1380,6 @@ async def insert_preferred_attribute(preferred_attribute_info: BaseModels.Prefer
         cursor.execute(query, preferred_attribute_info.profile_id, preferred_attribute_info.attribute_id)
         conn.commit()
 
-    except pyodbc.IntegrityError as e:
-        raise HTTPException(status_code=400, detail=f"IntegrityError occurred: {e}")
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail="Something went wrong")
 

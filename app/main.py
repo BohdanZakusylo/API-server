@@ -5,7 +5,7 @@ import requests
 import json
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, HTTPException, Depends
+from fastapi import FastAPI, Query, HTTPException, Depends, Header, status
 from app.token_generator.token_validation import encode_token, decode_token, encode_refresh_token, decode_refresh_token
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.data_type_validation.data_validate import Correct_Data
@@ -15,7 +15,6 @@ from typing import Optional
 from datetime import datetime
 
 
-ACCEPTED_DATA_TYPES = ["xml", "json"]
 correct_data = Correct_Data()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -41,36 +40,90 @@ print("Connection established")
 
 @app.get("/")
 async def main_page():
-    return {"message": "Hello World"}
+    return {"message": "Hello World", "status_code": 200, "message": "OK"}
 
 
-@app.post("/registration")
-async def login(login_info: BaseModels.LoginInfo):
+@app.post("/registration", status_code=status.HTTP_201_CREATED)
+async def registration(registration_info: BaseModels.RegistrationIngfo):
+    connectionString_reg = f'DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={SERVER};DATABASE={DATABASE};UID=NetflixApplication;PWD=netflix;TrustServerCertificate=yes'
+
+    conn_reg = pyodbc.connect(connectionString_reg)
+    cursor_reg = conn_reg.cursor()
+
     try:
+        print(cursor_reg)
+
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
-        password_bytes = login_info.password.encode('utf-8')
-        hashed_password = hashlib.sha256(password_bytes).hexdigest()
-        cursor.execute(query, login_info.email, hashed_password, login_info.username, login_info.age)
-        conn.commit()
+        cursor_reg.execute(query, registration_info.email, registration_info.password, registration_info.username, registration_info.age)
+        conn_reg.commit()
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Username and email should be unique")
 
-    if cursor.rowcount <= 0:
-        raise HTTPException(status_code=404, detail="Username and email should be unique")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-    cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{login_info.email}';")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
-    id = cursor.fetchone()[0]
+    if cursor_reg.rowcount <= 0:
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
+
+    cursor_reg.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{registration_info.email}';")
+
+    try:
+        id = cursor_reg.fetchone()[0]
+
+    except TypeError:
+        raise HTTPException(status_code=409, detail="User already exists")
+
+    cursor_reg.close()
+    conn_reg.close()
 
     return {
-        "token": encode_token(id, login_info.username)
+        "token": encode_token(id, registration_info.username)
     }
+
+@app.get("/login")
+async def login(login_info: BaseModels.LoginInfo):
+    try:
+        query = """EXEC [CheckUserPassword] @email = ?, @password = ?;"""
+        cursor.execute(query, login_info.email, login_info.password)
+        result = cursor.fetchone()[0]
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    if not result:
+        raise HTTPException(status_code=401, detail="Wrong email or password")
+    else:
+        query = """EXEC [GetCredential] @email = ?"""
+        cursor.execute(query, login_info.email)
+        rows = cursor.fetchall()
+        result_list = []
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"data": result_list, "token": encode_token(int(result_list[0].get('user_id', 0)), login_info.email)}
+        return response
 
 @app.get("/refresh-token")
 def get_refresh_token_by_token(token: str = Depends(oauth2_scheme)):
     decoded_token = decode_token(token)
-    
-    cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
+    try:
+        cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.fetchone() is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -79,12 +132,17 @@ def get_refresh_token_by_token(token: str = Depends(oauth2_scheme)):
         "refresh_token": encode_refresh_token(decoded_token["id"], decoded_token["username"]),
     }
 
-
 @app.get("/new-token")
 def get_token_by_refresh_token(refresh_token: str = Depends(oauth2_scheme)):
     decoded_token = decode_refresh_token(refresh_token)
 
-    cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
+    try:
+        cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.fetchone() is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -95,43 +153,56 @@ def get_token_by_refresh_token(refresh_token: str = Depends(oauth2_scheme)):
 
 #start attributes
 
-@app.get("/attributes/{data_type}")
-async def get_attributes(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
-    decode_token(token)
-    
-    cursor.execute(f"EXEC [SelectAtribute];")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
-
-    return correct_data.return_correct_format(result_list, data_type, "attributes")
-
-@app.get("/attributes/{id}/{data_type}")
-async def get_attributes_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/attributes")
+async def get_attributes(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectAttributeById] @attribute_id = {id};")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    try:
+        cursor.execute(f"EXEC [SelectAtribute];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    return correct_data.return_correct_format(result_list, data_type, "attributes")
 
-@app.post("/attributes")
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "attributes")
+
+@app.get("/attributes/{id}")
+async def get_attributes_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+
+    decode_token(token)
+
+    try:
+        cursor.execute(f"EXEC [SelectAttributeById] @attribute_id = {id};")
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "attributes")
+
+@app.post("/attributes", status_code=status.HTTP_201_CREATED)
 async def insert_atributes(attribute_data: BaseModels.AttributesInfo, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
@@ -143,10 +214,15 @@ async def insert_atributes(attribute_data: BaseModels.AttributesInfo, token: str
     
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Attributes name is incorrect")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
     
     return {"message": "Atribute inserted"}
 
-@app.put("/attributes/{id}")
+@app.put("/attributes/{id}", status_code=status.HTTP_200_OK)
 async def update_attributes(id: int, attribute_info: BaseModels.AttributesInfo, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
@@ -157,7 +233,15 @@ async def update_attributes(id: int, attribute_info: BaseModels.AttributesInfo, 
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Attributes naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Atribute updated"}
 
@@ -174,50 +258,68 @@ async def delete_attributes(id: int, token: str = Depends(oauth2_scheme)):
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Attributes naming is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Atribute deleted"}
 
 #end atributes
 
 #start languages
 
-@app.get("/language/{data_type}")
-async def get_languages(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
-    decode_token(token)
+@app.get("/language")
+async def get_languages(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     
-    cursor.execute(f"EXEC [SelectLanguage];")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
-
-    return correct_data.return_correct_format(result_list, data_type, "languages")
-
-
-@app.get("/language/{id}/{data_type}")
-async def get_languages_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectLanguageById] @language_id = {id};")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectLanguage];")
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "languages")
+
+
+@app.get("/language/{id}")
+async def get_languages_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    decode_token(token)
 
-    return correct_data.return_correct_format(result_list, data_type, "languages")
+    try:
+        cursor.execute(f"EXEC [SelectLanguageById] @language_id = {id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-@app.post("/language")
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "languages")
+
+@app.post("/language", status_code=status.HTTP_201_CREATED)
 async def insert_languages(language_info: BaseModels.LanguageInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
         
@@ -228,10 +330,18 @@ async def insert_languages(language_info: BaseModels.LanguageInfo, token: str = 
 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Language name is incorrect")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Language inserted"}
 
-@app.put("/language/{id}")
+@app.put("/language/{id}", status_code=status.HTTP_200_OK)
 async def update_languages(id: int, language_info: BaseModels.LanguageInfo, token: str = Depends(oauth2_scheme)):
 
     decode_token(token)
@@ -242,7 +352,15 @@ async def update_languages(id: int, language_info: BaseModels.LanguageInfo, toke
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Language naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Language updated"}
 
@@ -259,53 +377,69 @@ async def delete_languages(id: int, token: str = Depends(oauth2_scheme)):
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Language naming is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Language deleted"}
 
 #end languages
 
 #start profile
 
-@app.get("/profile/{data_type}")
-async def get_profile(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
-    decode_token(token)
+@app.get("/profile")
+async def get_profile(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     
-    cursor.execute(f"EXEC [SelectProfile];")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
-
-    return correct_data.return_correct_format(result_list, data_type, "profile")
-
-@app.get("/profile/{id}/{data_type}")
-async def get_profile_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectProfileById] @profile_id = {id};")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    try:
+        cursor.execute(f"EXEC [SelectProfile];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    return correct_data.return_correct_format(result_list, data_type, "profile")
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+        return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The SELECT permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+@app.get("/profile/{id}")
+async def get_profile_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
+
+    try:
+        cursor.execute(f"EXEC [SelectProfileById] @profile_id = {id};")
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and ('The SELECT permission was denied on the object' in error_message or 'Invalid object name' in error_message):
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile")
 
 
-@app.post("/profile")
+@app.post("/profile", status_code=status.HTTP_201_CREATED)
 async def insert_profile(profile_info: BaseModels.ProfileInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
-    print(profile_info.user_id, profile_info.age, profile_info.nick_name, profile_info.profile_picture)
+    
     try:
         query = f"EXEC [InsertProfile] @user_id = ?, @age = ?, @nick_name = ?, @profile_picture = ?;"
         cursor.execute(query, profile_info.user_id, profile_info.age, profile_info.nick_name, profile_info.profile_picture)
@@ -314,10 +448,18 @@ async def insert_profile(profile_info: BaseModels.ProfileInfo, token: str = Depe
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Profile data is incorrect")
     
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+    
     return {"message": "Profile inserted"}
 
 
-@app.put("/profile/{id}")
+@app.put("/profile/{id}", status_code=status.HTTP_200_OK)
 async def update_profile(id: int, profile_info: BaseModels.ProfileInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -327,7 +469,15 @@ async def update_profile(id: int, profile_info: BaseModels.ProfileInfo, token: s
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Profile data is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Profile updated"}
 
@@ -343,53 +493,68 @@ async def delete_profile(id: int, token: str = Depends(oauth2_scheme)):
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Profile data is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Profile deleted"}
 
 #end profile
 
 #start film
 
-@app.get("/film/{data_type}")
-async def get_film(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
-    decode_token(token)
-    
-    cursor.execute(f"EXEC [SelectFilm];")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
-        
-    return correct_data.return_correct_format(result_list, data_type, "film")
-
-
-@app.get("/film/{id}/{data_type}")
-async def get_film_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/film")
+async def get_film(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectFilmById] @film_id = {id};")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            if column[0] == "release_date":
+    try:
+        cursor.execute(f"EXEC [SelectFilm];")
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
                 user_dict[column[0]] = str(row[idx])
-            else:
-                user_dict[column[0]] = row[idx]
-        result_list.append(user_dict)
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and ('The SELECT permission was denied on the object' in error_message or 'Invalid object name' in error_message):
+            raise HTTPException(status_code=403, detail="Permission denied")
+        
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film")
 
-@app.post("/film")
+
+@app.get("/film/{id}")
+async def get_film_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
+
+    try:
+        cursor.execute(f"EXEC [SelectFilmById] @film_id = {id};")
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                if column[0] == "release_date":
+                    user_dict[column[0]] = str(row[idx])
+                else:
+                    user_dict[column[0]] = row[idx]
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film")
+
+@app.post("/film", status_code=status.HTTP_201_CREATED)
 async def insert_film(film_info: BaseModels.FilmInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -400,10 +565,18 @@ async def insert_film(film_info: BaseModels.FilmInfo, token: str = Depends(oauth
     
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Film data is incorrect")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
     
     return {"message": "Film inserted"}
 
-@app.put("/film/{id}")
+@app.put("/film/{id}", status_code=status.HTTP_200_OK)
 async def update_film(id: int, film_info: BaseModels.FilmInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -413,7 +586,15 @@ async def update_film(id: int, film_info: BaseModels.FilmInfo, token: str = Depe
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Film data is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Film updated"}
 
@@ -430,49 +611,64 @@ async def delete_film(id: int, token: str = Depends(oauth2_scheme)):
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Film data is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Film deleted"}
 
 #end film
 
 #start quality
 
-@app.get("/quality/{data_type}")
-async def get_quality(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-    
+@app.get("/quality")
+async def get_quality(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
-    
-    cursor.execute(f"EXEC [SelectQuality];")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-                user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+
+    try:
+        cursor.execute(f"EXEC [SelectQuality];")
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                    user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and ('The SELECT permission was denied on the object' in error_message or 'Invalid object name' in error_message):
+            raise HTTPException(status_code=403, detail="Permission denied")
         
-    return correct_data.return_correct_format(result_list, data_type, "quality")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "quality")
 
-@app.get("/quality/{id}/{data_type}")
-async def get_quality_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-    
+@app.get("/quality/{id}")
+async def get_quality_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectQualityById] @quality_id = {id};")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-                user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    try:
+        cursor.execute(f"EXEC [SelectQualityById] @quality_id = {id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    return correct_data.return_correct_format(result_list, data_type, "quality")
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                    user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-@app.post("/quality")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and ('The SELECT permission was denied on the object' in error_message or 'Invalid object name' in error_message):
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "quality")
+
+@app.post("/quality", status_code=status.HTTP_201_CREATED)
 async def insert_quality(quality_info: BaseModels.QualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -483,11 +679,19 @@ async def insert_quality(quality_info: BaseModels.QualityInfo, token: str = Depe
     
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Quality data is incorrect")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
     
     return {"message": "Quality inserted"}
 
 
-@app.put("/quality/{id}")
+@app.put("/quality/{id}", status_code=status.HTTP_200_OK)
 async def update_quality(id: int, quality_info: BaseModels.QualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -497,7 +701,15 @@ async def update_quality(id: int, quality_info: BaseModels.QualityInfo, token: s
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Quality data is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Quality updated"}
 
@@ -514,49 +726,64 @@ async def delete_quality(id: int, token: str = Depends(oauth2_scheme)):
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Quality data is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Quality deleted"}
 
 #end quality
 
 #start subtitle
 
-@app.get("/subtitle/{data_type}")
-async def get_subtitle(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/subtitle")
+async def get_subtitle(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
-    
-    cursor.execute(f"EXEC [SelectSubtitle];")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-                user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+
+    try:
+        cursor.execute(f"EXEC [SelectSubtitle];")
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                    user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and ('The SELECT permission was denied on the object' in error_message or 'Invalid object name' in error_message):
+            raise HTTPException(status_code=403, detail="Permission denied")
         
-    return correct_data.return_correct_format(result_list, data_type, "subtitle")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subtitle")
 
-@app.get("/subtitle/{id}/{data_type}")
-async def get_subtitle_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/subtitle/{id}")
+async def get_subtitle_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectSubtitleById] @subtitle_id = {id};")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-                user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    try:
+        cursor.execute(f"EXEC [SelectSubtitleById] @subtitle_id = {id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    return correct_data.return_correct_format(result_list, data_type, "subtitle")
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                    user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-@app.post("/subtitle")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and ('The SELECT permission was denied on the object' in error_message or 'Invalid object name' in error_message):
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subtitle")
+
+@app.post("/subtitle", status_code=status.HTTP_201_CREATED)
 async def insert_subtitle(subtitle_info: BaseModels.SubtitleInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -568,9 +795,17 @@ async def insert_subtitle(subtitle_info: BaseModels.SubtitleInfo, token: str = D
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Subtitle data is incorrect")
     
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+    
     return {"message": "Subtitle inserted"}
 
-@app.put("/subtitle/{id}")
+@app.put("/subtitle/{id}", status_code=status.HTTP_200_OK)
 async def update_subtitle(id: int, subtitle_info: BaseModels.SubtitleInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -580,7 +815,15 @@ async def update_subtitle(id: int, subtitle_info: BaseModels.SubtitleInfo, token
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Subtitle data is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Subtitle updated"}
 
@@ -597,49 +840,64 @@ async def delete_subtitle(id: int, token: str = Depends(oauth2_scheme)):
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Subtitle data is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Subtitle deleted"}
 
 #end subtitle
 
 #start episode
 
-@app.get("/episode/{data_type}")
-async def get_episode(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/episode")
+async def get_episode(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
-    
-    cursor.execute(f"EXEC [SelectEpisode];")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-                user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+
+    try:
+        cursor.execute(f"EXEC [SelectEpisode];")
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                    user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and ('The SELECT permission was denied on the object' in error_message or 'Invalid object name' in error_message):
+            raise HTTPException(status_code=403, detail="Permission denied")
         
-    return correct_data.return_correct_format(result_list, data_type, "episode")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "episode")
 
-@app.get("/episode/{id}/{data_type}")
-async def get_episode_by_id(id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/episode/{id}")
+async def get_episode_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectEpisodeById] @episode_id = {id};")
-    rows = cursor.fetchall()
-    result_list = []
-    
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-                user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    try:
+        cursor.execute(f"EXEC [SelectEpisodeById] @episode_id = {id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    return correct_data.return_correct_format(result_list, data_type, "episode")
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                    user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-@app.post("/episode")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and ('The SELECT permission was denied on the object' in error_message or 'Invalid object name' in error_message):
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "episode")
+
+@app.post("/episode", status_code=status.HTTP_201_CREATED)
 async def insert_episode(episode_info: BaseModels.EpisodeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -651,10 +909,18 @@ async def insert_episode(episode_info: BaseModels.EpisodeInfo, token: str = Depe
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Episode data is incorrect")
     
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+    
     return {"message": "Episode inserted"}
 
 
-@app.put("/episode/{id}")
+@app.put("/episode/{id}", status_code=status.HTTP_200_OK)
 async def update_episode(id: int, episode_info: BaseModels.EpisodeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -664,7 +930,15 @@ async def update_episode(id: int, episode_info: BaseModels.EpisodeInfo, token: s
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Episode data is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Episode updated"}
 
@@ -680,327 +954,425 @@ async def delete_episode(id: int, token: str = Depends(oauth2_scheme)):
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Episode data is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Episode deleted"}
 
 #end episode
 
 #start episode-dubbing view
 
-@app.get("/episode-dubbing/{data_type}")
-async def get_view_episode_dubbing(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/episode-dubbing")
+async def get_view_episode_dubbing(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewEpisodeDubbing];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewEpisodeDubbing];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "episode-dubbing-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/episode-subtitle/{data_type}")
-async def get_view_episode_subtitle(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "episode-dubbing-view")
 
+@app.get("/episode-subtitle")
+async def get_view_episode_subtitle(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewEpisodeSubtitle];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewEpisodeSubtitle];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "episode-subtitle-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        print(error_message)
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/series-episodes/{data_type}")
-async def get_view_series_episodes(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "episode-subtitle-view")
 
+@app.get("/series-episodes")
+async def get_view_series_episodes(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewEpisodesPerSeries];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewEpisodesPerSeries];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-episodes-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        print(error_message)
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/film-attribute/{data_type}")
-async def get_view_film_attribute(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-episodes-view")
 
+@app.get("/film-attribute")
+async def get_view_film_attribute(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewFilmAttribute];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewFilmAttribute];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-attribute-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        print(error_message)
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/film-dubbing/{data_type}")
-async def get_view_film_dubbing(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-attribute-view")
 
+@app.get("/film-dubbing")
+async def get_view_film_dubbing(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewFilmDubbing];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewFilmDubbing];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-dubbing-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        print(error_message)
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/film-quality/{data_type}")
-async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-dubbing-view")
 
+@app.get("/film-quality")
+async def get_view_film_quality(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewFilmQuality];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewFilmQuality];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-quality-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        print(error_message)
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/film-subtitle/{data_type}")
-async def get_view_film_quality(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-quality-view")
 
+@app.get("/film-subtitle")
+async def get_view_film_quality(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewFilmSubtitle];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewFilmSubtitle];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-subtitle-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        print(error_message)
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/profile-watchlist-film/{data_type}")
-async def get_view_profile_watchlist_film(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-subtitle-view")
 
+@app.get("/profile-watchlist-film")
+async def get_view_profile_watchlist_film(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewProfileWatchlistFilm];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewProfileWatchlistFilm];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-watchlist-film-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        print(error_message)
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/profile-watchlist-series/{data_type}")
-async def get_view_profile_watchlist_series(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-watchlist-film-view")
 
+@app.get("/profile-watchlist-series")
+async def get_view_profile_watchlist_series(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewProfileWatchlistSeries];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewProfileWatchlistSeries];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-watchlist-series-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        print(error_message)
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-# @app.get("/profile-watchlist-all/{data_type}")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-watchlist-series-view")
 
-@app.get("/profile-preferred-attribute/{data_type}")
-async def get_view_profile_preferred_attribute(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+# @app.get("/profile-watchlist-all")
 
+@app.get("/profile-preferred-attribute")
+async def get_view_profile_preferred_attribute(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewProfilePreferredAttribute];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewProfilePreferredAttribute];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile_preferred_attribute-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/series-genre/{data_type}")
-async def get_view_series_genre(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile_preferred_attribute-view")
 
+@app.get("/series-genre")
+async def get_view_series_genre(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewSeriesGenre];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewSeriesGenre];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/user-information/{data_type}")
-async def get_view_user_information(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre-view")
 
+@app.get("/user-information")
+async def get_view_user_information(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewUserInformation];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewUserInformation];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "user-information-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user-information-view")
 
 #dbms error
-@app.get("/user-profile/{data_type}")
-async def get_view_user_profile(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/user-profile")
+async def get_view_user_profile(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewUserProfile];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewUserProfile];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "user-profile-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/episode-view/{data_type}")
-async def get_view_episode_view(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user-profile-view")
 
+@app.get("/episode-view")
+async def get_view_episode_view(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewEpisodeView];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewEpisodeView];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "view-episode-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/film-view/{data_type}")
-async def get_view_film_view(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "view-episode-view")
 
+@app.get("/film-view")
+async def get_view_film_view(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectViewFilmView];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewFilmView];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "view-film-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "view-film-view")
 
 #start preferred attributes
 
-@app.get("/preferred-attribute/{data_type}")
-async def get_preferred_attribute(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/preferred-attribute")
+async def get_preferred_attribute(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectPreferredAttribute];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectPreferredAttribute];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/preferred-attribute/{profile_id}/{data_type}")
-async def get_preferred_attribute_by_profile_id(profile_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "preferred-attribute")
 
+@app.get("/preferred-attribute/{profile_id}")
+async def get_preferred_attribute_by_profile_id(profile_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectPreferredAttributeByProfileId] @profile_id = {profile_id};")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectPreferredAttributeByProfileId] @profile_id = {profile_id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    if not rows:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        if not rows:
+            raise HTTPException(status_code=404, detail="Profile not found")
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "preferred-attribute")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.post("/preferred-attribute")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "preferred-attribute")
+
+@app.post("/preferred-attribute", status_code=status.HTTP_201_CREATED)
 async def insert_preferred_attribute(preferred_attribute_info: BaseModels.PreferredAttributeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1009,12 +1381,17 @@ async def insert_preferred_attribute(preferred_attribute_info: BaseModels.Prefer
         cursor.execute(query, preferred_attribute_info.profile_id, preferred_attribute_info.attribute_id)
         conn.commit()
 
-    except pyodbc.IntegrityError as e:
-        raise HTTPException(status_code=400, detail=f"IntegrityError occurred: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Preferred attribute inserted"}
 
-@app.put("/preferred-attribute/{profile_id}-{attribute_id}")
+@app.put("/preferred-attribute/{profile_id}-{attribute_id}", status_code=status.HTTP_200_OK)
 async def update_preferred_attributes(profile_id: int, attribute_id: int, preferred_attribute_info: BaseModels.PreferredAttributeInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1024,7 +1401,15 @@ async def update_preferred_attributes(profile_id: int, attribute_id: int, prefer
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Preferred attributes naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Preferred attribute updated"}
 
@@ -1040,74 +1425,94 @@ async def delete_preferred_attribute(profile_id: int, attribute_id: int, token: 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Preferred attributes naming is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Preferred attribute deleted"}
 
 #end preferred attributes
 
 #start film genre
 
-@app.get("/film-genre/{data_type}")
-async def get_film_genre(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/film-genre")
+async def get_film_genre(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectFilmGenre];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectFilmGenre];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/film-genre/{film_id}/{data_type}")
-async def get_film_genre_by_film_id(film_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-genre")
 
+@app.get("/film-genre/{film_id}")
+async def get_film_genre_by_film_id(film_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectFilmGenreByFilmId] @film_id = {film_id};")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectFilmGenreByFilmId] @film_id = {film_id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    if not rows:
-        raise HTTPException(status_code=404, detail="Film not found")
+        if not rows:
+            raise HTTPException(status_code=404, detail="Film not found")
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-genre")
 
 
-@app.get("/genre-film/{attribute_id}/{data_type}")
-async def get_film_genre_by_attribute_id(attribute_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/genre-film/{attribute_id}")
+async def get_film_genre_by_attribute_id(attribute_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectFilmGenreByAttributeId] @attribute_id = {attribute_id};")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectFilmGenreByAttributeId] @attribute_id = {attribute_id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    if not rows:
-        raise HTTPException(status_code=404, detail="Genre not found")
+        if not rows:
+            raise HTTPException(status_code=404, detail="Genre not found")
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "film-genre")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.post("/film-genre")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-genre")
+
+@app.post("/film-genre", status_code=status.HTTP_201_CREATED)
 async def insert_film_genre(film_genre_info: BaseModels.FilmGenreInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1118,10 +1523,18 @@ async def insert_film_genre(film_genre_info: BaseModels.FilmGenreInfo, token: st
 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Invalid input. Input should be integer.")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Film genre inserted"}
 
-@app.put("/film-genre/{film_id}-{attribute_id}")
+@app.put("/film-genre/{film_id}-{attribute_id}", status_code=status.HTTP_200_OK)
 async def update_preferred_attributes(film_id: int, attribute_id: int, film_genre_info: BaseModels.FilmGenreInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1131,7 +1544,15 @@ async def update_preferred_attributes(film_id: int, attribute_id: int, film_genr
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Film genre naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Film genre updated"}
 
@@ -1147,76 +1568,96 @@ async def delete_preferred_attribute(film_id: int, attribute_id: int, token: str
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Preferred attributes naming is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Film genre deleted"}
 
 #end film genre
 
 #start series genre
 
-@app.get("/series-genre/{data_type}")
-async def get_series_genre(data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/series-genre")
+async def get_series_genre(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectSeriesGenre];")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectSeriesGenre];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
 
-@app.get("/series-genre/{series_id}/{data_type}")
-async def get_series_genre_by_series_id(series_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/series-genre/{series_id}")
+async def get_series_genre_by_series_id(series_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectSeriesGenreBySeriesId] @series_id = {series_id};")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectSeriesGenreBySeriesId] @series_id = {series_id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    if not rows:
-        raise HTTPException(status_code=404, detail="Series not found")
+        if not rows:
+            raise HTTPException(status_code=404, detail="Series not found")
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
 
-@app.get("/genre-series/{attribute_id}/{data_type}")
-async def get_series_genre_by_attribute_id(attribute_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/genre-series/{attribute_id}")
+async def get_series_genre_by_attribute_id(attribute_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectSeriesGenreByAttributeId] @attribute_id = {attribute_id};")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectSeriesGenreByAttributeId] @attribute_id = {attribute_id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    if not rows:
-        raise HTTPException(status_code=404, detail="Genre not found")
+        if not rows:
+            raise HTTPException(status_code=404, detail="Genre not found")
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
 
-@app.post("/series-genre")
+@app.post("/series-genre", status_code=status.HTTP_201_CREATED)
 async def insert_series_genre(series_genre_info: BaseModels.SeriesGenerInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1227,11 +1668,19 @@ async def insert_series_genre(series_genre_info: BaseModels.SeriesGenerInfo, tok
 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Invalid input. Input should be integer.")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Series genre inserted"}
 
 
-@app.put("/series-genre/{series_id}-{attribute_id}")
+@app.put("/series-genre/{series_id}-{attribute_id}", status_code=status.HTTP_200_OK)
 async def update_series_genre(series_id: int, attribute_id: int, series_genre_info: BaseModels.SeriesGenerInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1241,7 +1690,15 @@ async def update_series_genre(series_id: int, attribute_id: int, series_genre_in
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Series genre naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Series genre updated"}
 
@@ -1258,19 +1715,19 @@ async def delete_series_genre(series_id: int, attribute_id: int, token: str = De
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Series genre naming is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Series genre deleted"}
 
 # end series genre
 
 #start film quality
-
-#TODO add an if statement ib sp to check if film_id or episode_id is null
-
-@app.get("/profile-film-overview/{view_id}/{profile_id}/{data_type}")
-def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str, film_id: int = Query(None), episode_id: int = Query(None), token: str = Depends(oauth2_scheme)):
+@app.get("/profile-film-overview/{view_id}/{profile_id}")
+def get_view_profile_film_overview(view_id: int, profile_id: str, accept: str = Header(default="application/json"), film_id: int = Query(None), episode_id: int = Query(None), token: str = Depends(oauth2_scheme)):
     id_to_paste = None
-
-    correct_data.validate_data_type(data_type)
 
     decode_token(token)
 
@@ -1282,78 +1739,103 @@ def get_view_profile_film_overview(view_id: int, profile_id: str, data_type: str
             variable_name = name
             break
 
-    cursor.execute(f"EXEC [SelectViewProfileFilmOverview] @view_id = {view_id}, @profile_id = {profile_id}, @variable_name = {variable_name}, @id_to_paste = {id_to_paste};")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectViewProfileFilmOverview] @view_id = {view_id}, @profile_id = {profile_id}, @variable_name = {variable_name}, @id_to_paste = {id_to_paste};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description): 
-            if column[0] == "date":
-                user_dict[column[0]] = str(row[idx])
-            else:
-                user_dict[column[0]] = row[idx]
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                if column[0] == "date":
+                    user_dict[column[0]] = str(row[idx])
+                else:
+                    user_dict[column[0]] = row[idx]
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/profile-film-overview/{data_type}")
-def get_view_profile_film_overview_all(data_type: str, token: str = Depends(oauth2_scheme)):
-    cursor.execute(f"EXEC [SelectFilmQuality];")
-    rows = cursor.fetchall()
-    result_list = []
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-film-overview-view")
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
-
-    return correct_data.return_correct_format(result_list, data_type, "film-quality")
-
-
-@app.get("/film-quality/{film_id}/{data_type}")
-async def get_film_quality_by_film_id(film_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/profile-film-overview")
+def get_view_profile_film_overview_all(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectFilmQualityByFilmId] @film_id = {film_id};")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectFilmQuality];")
+        rows = cursor.fetchall()
+        result_list = []
 
-    if not rows:
-        raise HTTPException(status_code=404, detail="Film not found")
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-quality")
 
 
-# @app.get("/quality-film/{quality_id}/{data_type}")
-# async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-#     correct_data.validate_data_type(data_type)
-#
-#     decode_token(token)
-#
-#     cursor.execute(f"EXEC [SelectViewProfileFilmOverviewAll];")
-#     rows = cursor.fetchall()
-#     result_list = []
-#
-#     for row in rows:
-#         user_dict = {}
-#         for idx, column in enumerate(cursor.description):
-#             if column[0] == "date":
-#                 user_dict[column[0]] = str(row[idx])
-#             else:
-#                 user_dict[column[0]] = row[idx]
-#         result_list.append(user_dict)
-#
-#     return correct_data.return_correct_format(result_list, data_type, "profile-film-overview-view")
+@app.get("/film-quality/{film_id}")
+async def get_film_quality_by_film_id(film_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
+
+    try:
+        cursor.execute(f"EXEC [SelectFilmQualityByFilmId] @film_id = {film_id};")
+        rows = cursor.fetchall()
+        result_list = []
+
+        if not rows:
+            raise HTTPException(status_code=404, detail="Film not found")
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
+
+@app.get("/quality-film/{quality_id}")
+async def get_film_quality_by_quality_id(quality_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
+
+    try:
+        cursor.execute(f"EXEC [SelectViewProfileFilmOverviewAll];")
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                if column[0] == "date":
+                    user_dict[column[0]] = str(row[idx])
+                else:
+                    user_dict[column[0]] = row[idx]
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-film-overview-view")
 
 
 #cats
@@ -1378,29 +1860,33 @@ async def get_axoloti_onfo(token: str = Depends(oauth2_scheme)):
 
 #start film quality
 
-@app.get("/quality-film/{quality_id}/{data_type}")
-async def get_film_quality_by_quality_id(quality_id: int, data_type: str, token: str = Depends(oauth2_scheme)):
-    correct_data.validate_data_type(data_type)
-
+@app.get("/quality-film/{quality_id}")
+async def get_film_quality_by_quality_id(quality_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
-    cursor.execute(f"EXEC [SelectFilmQualityByQualityId] @quality_id = {quality_id};")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXEC [SelectFilmQualityByQualityId] @quality_id = {quality_id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    if not rows:
-        raise HTTPException(status_code=404, detail="Genre not found")
+        if not rows:
+            raise HTTPException(status_code=404, detail="Genre not found")
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series-genre")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
-@app.post("/film-quality")
+@app.post("/film-quality", status_code=status.HTTP_201_CREATED)
 async def insert_film_quality(film_quality_info: BaseModels.FilmQualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1410,12 +1896,20 @@ async def insert_film_quality(film_quality_info: BaseModels.FilmQualityInfo, tok
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Invalid input. Input should be integer.")
+        raise HTTPException(status_code=400, detail="Invalid input")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Film quality inserted"}
 
 
-@app.put("/film-quality/{film_id}-{quality_id}")
+@app.put("/film-quality/{film_id}-{quality_id}", status_code=status.HTTP_200_OK)
 async def update_film_quality(film_id: int, quality_id: int, film_quality_info: BaseModels.FilmQualityInfo, token: str = Depends(oauth2_scheme)):
     decode_token(token)
 
@@ -1425,7 +1919,15 @@ async def update_film_quality(film_id: int, quality_id: int, film_quality_info: 
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Film quality naming is incorrect")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"message:" "Film quality updated"}
 
@@ -1442,53 +1944,62 @@ async def delete_film_quality(film_id: int, quality_id: int, token: str = Depend
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Film quality naming is incorrect")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
     return {"message": "Film quality deleted"}
 
 # end film quality
 
 #Users start
-@app.get("/users/{data_type}")
-async def get_users(data_type: str, token: str =  Depends(oauth2_scheme)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
-
+@app.get("/users")
+async def get_users(accept: str = Header(default="application/json"), token: str =  Depends(oauth2_scheme)):
     decode_token(token)
-    # End of the code that checks if the token is valid and if the data type is valid
 
-    cursor.execute(f"EXECUTE SelectUser;")
-    rows = cursor.fetchall()
-    result_list = []
+    try:
+        cursor.execute(f"EXECUTE SelectUser;")
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(result_list, data_type, "user")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user")
 
-@app.get("/users/{id}/{data_type}")
-async def get_users_by_id(id: int, data_type: str, token: str =  Depends(oauth2_scheme)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+@app.get("/users/{id}")
+async def get_users_by_id(id: int, accept: str = Header(default="application/json"), token: str =  Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        cursor.execute(f"EXECUTE SelectUserById @user_id = {id};")
+        rows = cursor.fetchall()
+        result_list = []
 
-    cursor.execute(f"EXECUTE SelectUserById @user_id = {id};")
-    rows = cursor.fetchall()
-    result_list = []
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(result_list, data_type, "user")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user")
 
-@app.put("/users/{id}")
+@app.put("/users/{id}", status_code=status.HTTP_200_OK)
 async def put_users(id: int, update_user_info: BaseModels.UpdateUserInfo, token: str = Depends(oauth2_scheme)):
     #TODO check if user wants to update itself
     decode_token(token)
@@ -1500,10 +2011,18 @@ async def put_users(id: int, update_user_info: BaseModels.UpdateUserInfo, token:
         conn.commit()
 
     except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Email should be unique")
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     cursor.execute(f"EXECUTE SelectUserById @user_id = {id};")
 
@@ -1514,20 +2033,21 @@ async def put_users(id: int, update_user_info: BaseModels.UpdateUserInfo, token:
     }
 
 @app.delete("/users/{id}")
-async def delete_users(id: int, token: str = Query(...)):
-
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+async def delete_users(id: int, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
     try:
-
         query = """EXECUTE DeleteUser @user_id = ?;"""
         cursor.execute(query, id)
         conn.commit()
 
     except pyodbc.IntegrityError:
         raise HTTPException(status_code=400, detail="Email should be unique")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=404, detail="User not found")
@@ -1538,97 +2058,119 @@ async def delete_users(id: int, token: str = Query(...)):
 
 #Dubbing start
 
-@app.get("/dubbings/{data_type}")
-async def get_dubbings(data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+@app.get("/dubbings")
+async def get_dubbings(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE SelectDubbing;"""
+        cursor.execute(query)
 
-    query = """EXECUTE SelectDubbing;"""
-    cursor.execute(query)
+        rows = cursor.fetchall()
+        result_list = []
 
-    rows = cursor.fetchall()
-    result_list = []
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(result_list, data_type, "dubbing")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "dubbing")
 
-@app.get("/dubbings/{dubbing_id}/{data_type}")
-async def get_dubbings_by_id(dubbing_id: int, data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+@app.get("/dubbings/{dubbing_id}")
+async def get_dubbings_by_id(dubbing_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE SelectDubbingById @dubbing_id = ?;"""
+        cursor.execute(query, dubbing_id)
 
-    query = """EXECUTE SelectDubbingById @dubbing_id = ?;"""
-    cursor.execute(query, dubbing_id)
+        rows = cursor.fetchall()
+        result_list = []
 
-    rows = cursor.fetchall()
-    result_list = []
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(result_list, data_type, "dubbing")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "dubbing")
 
-@app.post("/dubbings")
-async def post_dubbings(language_id: int = Query(...), dubbing_company: str = Query(...), film_id: int = Query(None), episode_id: int = Query(None), token: str = Query(...)):
+@app.post("/dubbings", status_code=status.HTTP_201_CREATED)
+async def post_dubbings(dubbing_info: BaseModels.DubbingInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
-
-    if (film_id is None and episode_id is None) or (film_id is not None and episode_id is not None):
+    if (dubbing_info.film_id is None and dubbing_info.episode_id is None) or (dubbing_info.film_id is not None and dubbing_info.episode_id is not None):
         raise HTTPException(status_code=400, detail="Wrong input")
 
-    query = """EXECUTE InsertDubbing @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
-    cursor.execute(query, film_id, episode_id, language_id, dubbing_company)
-    conn.commit()
+    try:
+        query = """EXECUTE InsertDubbing @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
+        cursor.execute(query, dubbing_info.film_id, dubbing_info.episode_id, dubbing_info.language_id, dubbing_info.dubbing_company)
+        conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Wrong input")
 
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
+    
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
+    
 
     return "Dubbing added successfully."
 
-@app.put("/dubbings/{dubbing_id}")
-async def put_dubbings(dubbing_id: int, language_id: int = Query(...), dubbing_company: str = Query(...), film_id: int = Query(None), episode_id: int = Query(None), token: str = Query(...)):
+@app.put("/dubbings/{dubbing_id}", status_code=status.HTTP_200_OK)
+async def put_dubbings(dubbing_id: int, dubbing_info: BaseModels.DubbingInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE UpdateDubbing @dubbing_id = ?, @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
+        cursor.execute(query, dubbing_id, dubbing_info.film_id, dubbing_info.episode_id, dubbing_info.language_id, dubbing_info.dubbing_company)
+        conn.commit()
 
-    query = """EXECUTE UpdateDubbing @dubbing_id = ?, @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
-    cursor.execute(query, dubbing_id, film_id, episode_id, language_id, dubbing_company)
-    conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     return f"Dubbing with id = {dubbing_id} edited successfully."
 
 @app.delete("/dubbings/{dubbing_id}")
-async def delete_dubbings(dubbing_id: int, token: str = Query(...)):
+async def delete_dubbings(dubbing_id: int, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE DeleteDubbing @dubbing_id = ?;"""
+        cursor.execute(query, dubbing_id)
+        conn.commit()
 
-    query = """EXECUTE DeleteDubbing @dubbing_id = ?;"""
-    cursor.execute(query, dubbing_id)
-    conn.commit()
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1639,64 +2181,72 @@ async def delete_dubbings(dubbing_id: int, token: str = Query(...)):
 
 #Series start
 
-@app.get("/series/{data_type}")
-async def get_series(data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+@app.get("/series")
+async def get_series(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE SelectSeries;"""
+        cursor.execute(query)
 
-    query = """EXECUTE SelectSeries;"""
-    cursor.execute(query)
+        rows = cursor.fetchall()
+        result_list = []
 
-    rows = cursor.fetchall()
-    result_list = []
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
 
-    return correct_data.return_correct_format(result_list, data_type, "series")
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.get("/series/{series_id}/{data_type}")
-async def get_series_by_id(series_id: int, data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series")
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+@app.get("/series/{series_id}")
+async def get_series_by_id(series_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    query = """EXECUTE SelectSeriesById @series_id = ?;"""
-    cursor.execute(query, series_id)
+    try:
+        query = """EXECUTE SelectSeriesById @series_id = ?;"""
+        cursor.execute(query, series_id)
 
-    rows = cursor.fetchall()
-    result_list = []
+        rows = cursor.fetchall()
+        result_list = []
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    return correct_data.return_correct_format(result_list, data_type, "series")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.post("/series")
-async def post_series(title: str, episode_amount: int, token: str = Query(...)):
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series")
 
-    print(title, episode_amount)
+@app.post("/series", status_code=status.HTTP_201_CREATED)
+async def post_series(series_info: BaseModels.SeriesInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE InsertSeries @title = ?, @episodeAmount = ?;"""
+        cursor.execute(query, series_info.title, series_info.episode_amount)
+        conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Wrong input")
 
-    query = """EXECUTE InsertSeries @title = ?, @episodeAmount = ?;"""
-    cursor.execute(query, title, episode_amount)
-    conn.commit()
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1704,31 +2254,43 @@ async def post_series(title: str, episode_amount: int, token: str = Query(...)):
     return "Series added successfully."
 
 @app.put("/series/{series_id}")
-async def put_series(series_id: int, title: str, episode_amount: int, token: str = Query(...)):
+async def put_series(series_id: int, series_info: BaseModels.SeriesInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE UpdateSeries @series_id = ?, @title = ?, @episodeAmount = ?;"""
+        cursor.execute(query, series_id, series_info.title, series_info.episode_amount)
+        conn.commit()
 
-    query = """EXECUTE UpdateSeries @series_id = ?, @title = ?, @episodeAmount = ?;"""
-    cursor.execute(query, series_id, title, episode_amount)
-    conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     return f"Series with id = {series_id} edited successfully."
 
 @app.delete("/series/{series_id}")
-async def delete_series(series_id: int, token: str = Query(...)):
+async def delete_series(series_id: int, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE DeleteSeries @series_id = ?;"""
+        cursor.execute(query, series_id)
+        conn.commit()
 
-    query = """EXECUTE DeleteSeries @series_id = ?;"""
-    cursor.execute(query, series_id)
-    conn.commit()
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1739,94 +2301,115 @@ async def delete_series(series_id: int, token: str = Query(...)):
 
 #Subscription start
 
-@app.get("/subscriptions/{data_type}")
-async def get_subscriptions(data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+@app.get("/subscriptions")
+async def get_subscriptions(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE SelectSubscription;"""
+        cursor.execute(query)
 
-    query = """EXECUTE SelectSubscription;"""
-    cursor.execute(query)
+        rows = cursor.fetchall()
+        result_list = []
 
-    rows = cursor.fetchall()
-    result_list = []
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(result_list, data_type, "subscription")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
-@app.get("/subscriptions/{subscription_id}/{data_type}")
-async def get_subscriptions_by_id(subscription_id: int, data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+#TODO fix all other routes done by vlad
+@app.get("/subscriptions/{subscription_id}")
+async def get_subscriptions_by_id(subscription_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE SelectSubscriptionById @subscription_id = ?;"""
+        cursor.execute(query, subscription_id)
 
-    query = """EXECUTE SelectSubscriptionById @subscription_id = ?;"""
-    cursor.execute(query, subscription_id)
+        rows = cursor.fetchall()
+        result_list = []
 
-    rows = cursor.fetchall()
-    result_list = []
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+        return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
-    return correct_data.return_correct_format(result_list, data_type, "subscription")
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-@app.post("/subscriptions")
-async def post_subscriptions(user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
+@app.post("/subscriptions", status_code=status.HTTP_201_CREATED)
+async def post_subscriptions(subscription_info: BaseModels.SubscriptionInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE InsertSubscription @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
+        cursor.execute(query, subscription_info.user_id, subscription_info.type, subscription_info.price, subscription_info.start_date, subscription_info.expiration_date, subscription_info.is_discount)
+        conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Wrong input")
 
-    query = """EXECUTE InsertSubscription @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
-    cursor.execute(query, user_id, type, price, start_date, expiration_date, is_discount)
-    conn.commit()
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
 
     return "Subscription added successfully."
 
-@app.put("/subscriptions/{subscription_id}")
-async def put_subscriptions(subscription_id: int, user_id: int, type: str, price: float, start_date: str, expiration_date: str, is_discount: bool, token: str = Query(...)):
+@app.put("/subscriptions/{subscription_id}", status_code=status.HTTP_200_OK)
+async def put_subscriptions(subscription_id: int, subscription_info: BaseModels.SubscriptionInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
+    try:
+        query = """EXECUTE UpdateSubscription @subscription_id = ?, @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
+        cursor.execute(query, subscription_id, subscription_info.user_id, subscription_info.type, subscription_info.price, subscription_info.start_date, subscription_info.expiration_date, subscription_info.is_discount)
+        conn.commit()
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Validation Error.")
 
-    query = """EXECUTE UpdateSubscription @subscription_id = ?, @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
-    cursor.execute(query, subscription_id, user_id, type, price, start_date, expiration_date, is_discount)
-    conn.commit()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     return f"Subscription with id = {subscription_id} edited successfully."
 
 @app.delete("/subscriptions/{subscription_id}")
-async def delete_subscriptions(subscription_id: int, token: str = Query(...)):
+async def delete_subscriptions(subscription_id: int, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE DeleteSubscription @subscription_id = ?;"""
+        cursor.execute(query, subscription_id)
+        conn.commit()
 
-    query = """EXECUTE DeleteSubscription @subscription_id = ?;"""
-    cursor.execute(query, subscription_id)
-    conn.commit()
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
@@ -1837,100 +2420,123 @@ async def delete_subscriptions(subscription_id: int, token: str = Query(...)):
 
 #Watchlist start
 
-@app.get("/watchlists/{data_type}")
-async def get_watchlists(data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+@app.get("/watchlists")
+async def get_watchlists(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE SelectWatchlist_Item;"""
+        cursor.execute(query)
 
-    query = """EXECUTE SelectWatchlist_Item;"""
-    cursor.execute(query)
+        rows = cursor.fetchall()
+        result_list = []
 
-    rows = cursor.fetchall()
-    result_list = []
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(result_list, data_type, "watchlist_item")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "watchlist_item")
 
-@app.get("/watchlists/{watchlist_item_id}/{data_type}")
-async def get_watchlists_by_id(watchlist_item_id: int, data_type: str, token: str = Query(...)):
-    # Start of the code that checks if the token is valid and if the data type is valid
-    correct_data.validate_data_type(data_type)
+@app.get("/watchlists/{watchlist_item_id}")
+async def get_watchlists_by_id(watchlist_item_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE SelectWatchlist_ItemById @watchlist_item_id = ?;"""
+        cursor.execute(query, watchlist_item_id)
 
-    query = """EXECUTE SelectWatchlist_ItemById @watchlist_item_id = ?;"""
-    cursor.execute(query, watchlist_item_id)
+        rows = cursor.fetchall()
+        result_list = []
 
-    rows = cursor.fetchall()
-    result_list = []
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        response = {"status": "200 OK", "data": result_list}
 
-    for row in rows:
-        user_dict = {}
-        for idx, column in enumerate(cursor.description):
-            user_dict[column[0]] = str(row[idx])
-        result_list.append(user_dict)
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(result_list, data_type, "subscription")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
-@app.post("/watchlists")
-async def post_series(profile_id: int = Query(...), series_id: int = Query(None), film_id: int = Query(None), is_finished: bool = Query(...), token: str = Query(...)):
+@app.post("/watchlists", status_code=status.HTTP_201_CREATED)
+async def post_watchlist_item(watchlist_item_info: BaseModels.WatchlistItemInfo, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if (film_id is None and series_id is None) or (film_id is not None and series_id is not None):
+    if (watchlist_item_info.film_id is None and watchlist_item_info.series_id is None) or (watchlist_item_info.film_id is not None and watchlist_item_info.series_id is not None):
         raise HTTPException(status_code=400, detail="Wrong input")
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE InsertWatchlist_Item @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
+        cursor.execute(query, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
+        conn.commit()
 
-    query = """EXECUTE InsertWatchlist_Item @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
-    cursor.execute(query, profile_id, series_id, film_id, is_finished)
-    conn.commit()
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Wrong input")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")
 
     return "Watchlist item added successfully."
 
-@app.put("/watchlists/{watchlist_item_id}")
-async def put_series(watchlist_item_id: int, profile_id: int = Query(...), series_id: int = Query(None), film_id: int = Query(None), is_finished: bool = Query(...), token: str = Query(...)):
+@app.put("/watchlists/{watchlist_item_id}", status_code=status.HTTP_200_OK)
+async def put_watchlist_item(watchlist_item_id: int, watchlist_item_info: BaseModels.WatchlistItemInfo, token: str = Depends(oauth2_scheme)):
 
-    if (film_id is None and series_id is None) or (film_id is not None and series_id is not None):
+    if (watchlist_item_info.film_id is None and watchlist_item_info.series_id is None) or (watchlist_item_info.film_id is not None and watchlist_item_info.series_id is not None):
         raise HTTPException(status_code=400, detail="Wrong input")
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    decode_token(token)
 
-    query = """EXECUTE UpdateWatchlist_Item @watchlist_item_id = ?, @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
-    cursor.execute(query, watchlist_item_id, profile_id, series_id, film_id, is_finished)
-    conn.commit()
+    try:
+        query = """EXECUTE UpdateWatchlist_Item @watchlist_item_id = ?, @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
+        cursor.execute(query, watchlist_item_id, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
+        conn.commit()
+
+    except pyodbc.IntegrityError:
+        raise HTTPException(status_code=400, detail="Validation Error.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise HTTPException(status_code=422, detail="Unprocessable Entity")
 
     return f"Watchlist item with id = {watchlist_item_id} edited successfully."
 
 @app.delete("/watchlists/{watchlist_item_id}")
-async def delete_series(watchlist_item_id: int, token: str = Query(...)):
+async def delete_watchlist_item(watchlist_item_id: int, token: str = Depends(oauth2_scheme)):
+    decode_token(token)
 
-    if decode_token(token) == "token is invalid":
-        raise HTTPException(status_code=401, detail="token is invalid")
-    # End of the code that checks if the token is valid and if the data type is valid
+    try:
+        query = """EXECUTE DeleteWatchlist_Item @watchlist_item_id = ?;"""
+        cursor.execute(query, watchlist_item_id)
+        conn.commit()
 
-    query = """EXECUTE DeleteWatchlist_Item @watchlist_item_id = ?;"""
-    cursor.execute(query, watchlist_item_id)
-    conn.commit()
+    except pyodbc.ProgrammingError as programming_error:
+        error_code, error_message = programming_error.args
+        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+            raise HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
         raise HTTPException(status_code=400, detail="Wrong input")

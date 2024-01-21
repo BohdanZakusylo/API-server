@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 
 class BaseModels:
-    class LoginInfo(BaseModel):
+    class RegistrationIngfo(BaseModel):
         email: str 
         password: str 
         username: str 
@@ -64,3 +64,31 @@ class BaseModels:
         language_id: int
         is_activated: int
         is_blocked: int
+
+    class DubbingInfo(BaseModel):
+        language_id: int
+        dubbing_company: str
+        film_id: int = None
+        episode_id: int = None
+
+    class SeriesInfo(BaseModel):
+        title: str
+        episode_amount: int
+    
+    class LoginInfo(BaseModel):
+        email: str
+        password: str
+
+    class SubscriptionInfo(BaseModel):
+        user_id: int
+        type: str
+        price: float
+        start_date: str
+        expiration_date: str
+        is_discount: bool
+
+    class WatchlistItemInfo(BaseModel):
+        profile_id: int
+        series_id: int = None
+        film_id: int = None
+        is_finished: bool

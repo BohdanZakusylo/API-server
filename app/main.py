@@ -15,27 +15,19 @@ from typing import Optional
 from datetime import datetime
 
 
+import  app.connection as connection
+import app.routers.login.login as login
+import app.routers.attributes.attributes as attributes
+
 correct_data = Correct_Data()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+conn, cursor = connection.conn, connection.cursor
 
 
 app = FastAPI()
-
-load_dotenv(".env")
-
-SERVER = os.getenv("SERVER")
-DATABASE = os.getenv("DATABASE")
-USERNAME = os.getenv("USER_NAME")
-PASSWORD = os.getenv("PASSWORD")
-
-
-connectionString = f'DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={SERVER};DATABASE={DATABASE};UID={USERNAME};PWD={PASSWORD};TrustServerCertificate=yes'
-
-conn = pyodbc.connect(connectionString)
-cursor = conn.cursor()
-
-print("Connection established")
+app.include_router(login.login_router)
+app.include_router(attributes.attributes_router)
 
 
 @app.get("/")
@@ -43,229 +35,10 @@ async def main_page():
     return {"message": "Hello World", "status_code": 200, "message": "OK"}
 
 
-@app.post("/registration", status_code=status.HTTP_201_CREATED)
-async def registration(registration_info: BaseModels.RegistrationIngfo):
-    connectionString_reg = f'DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={SERVER};DATABASE={DATABASE};UID=NetflixApplication;PWD=netflix;TrustServerCertificate=yes'
-
-    conn_reg = pyodbc.connect(connectionString_reg)
-    cursor_reg = conn_reg.cursor()
-
-    try:
-        print(cursor_reg)
-
-        query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
-        cursor_reg.execute(query, registration_info.email, registration_info.password, registration_info.username, registration_info.age)
-        conn_reg.commit()
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Username and email should be unique")
-
-    except pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise HTTPException(status_code=403, detail="Permission denied")
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Something went wrong")
-
-    if cursor_reg.rowcount <= 0:
-        raise HTTPException(status_code=422, detail="Unprocessable Entity")
-
-    cursor_reg.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{registration_info.email}';")
-
-    try:
-        id = cursor_reg.fetchone()[0]
-
-    except TypeError:
-        raise HTTPException(status_code=409, detail="User already exists")
-
-    cursor_reg.close()
-    conn_reg.close()
-
-    return {
-        "token": encode_token(id, registration_info.username)
-    }
-
-@app.get("/login")
-async def login(login_info: BaseModels.LoginInfo):
-    try:
-        query = """EXEC [CheckUserPassword] @email = ?, @password = ?;"""
-        cursor.execute(query, login_info.email, login_info.password)
-        result = cursor.fetchone()[0]
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    except pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise HTTPException(status_code=403, detail="Permission denied")
-
-    if not result:
-        raise HTTPException(status_code=401, detail="Wrong email or password")
-    else:
-        query = """EXEC [GetCredential] @email = ?"""
-        cursor.execute(query, login_info.email)
-        rows = cursor.fetchall()
-        result_list = []
-        for row in rows:
-            user_dict = {}
-            for idx, column in enumerate(cursor.description):
-                user_dict[column[0]] = str(row[idx])
-            result_list.append(user_dict)
-        response = {"data": result_list, "token": encode_token(int(result_list[0].get('user_id', 0)), login_info.email)}
-        return response
-
-@app.get("/refresh-token")
-def get_refresh_token_by_token(token: str = Depends(oauth2_scheme)):
-    decoded_token = decode_token(token)
-    try:
-        cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
-
-    except pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise HTTPException(status_code=403, detail="Permission denied")
-
-    if cursor.fetchone() is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return {
-        "refresh_token": encode_refresh_token(decoded_token["id"], decoded_token["username"]),
-    }
-
-@app.get("/new-token")
-def get_token_by_refresh_token(refresh_token: str = Depends(oauth2_scheme)):
-    decoded_token = decode_refresh_token(refresh_token)
-
-    try:
-        cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
-
-    except pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise HTTPException(status_code=403, detail="Permission denied")
-
-    if cursor.fetchone() is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return {
-        "token": encode_token(decoded_token["id"], decoded_token["username"]),
-    }
-
 #start attributes
 
-@app.get("/attributes")
-async def get_attributes(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
-    decode_token(token)
 
-    try:
-        cursor.execute(f"EXEC [SelectAtribute];")
-        rows = cursor.fetchall()
-        result_list = []
-
-
-        for row in rows:
-            user_dict = {}
-            for idx, column in enumerate(cursor.description):
-                user_dict[column[0]] = str(row[idx])
-            result_list.append(user_dict)
-        response = {"status": "200 OK", "data": result_list}
-
-    except pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise HTTPException(status_code=403, detail="Permission denied")
-
-    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "attributes")
-
-@app.get("/attributes/{id}")
-async def get_attributes_by_id(id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
-
-    decode_token(token)
-
-    try:
-        cursor.execute(f"EXEC [SelectAttributeById] @attribute_id = {id};")
-        rows = cursor.fetchall()
-        result_list = []
-
-        for row in rows:
-            user_dict = {}
-            for idx, column in enumerate(cursor.description):
-                user_dict[column[0]] = str(row[idx])
-            result_list.append(user_dict)
-        response = {"status": "200 OK", "data": result_list}
-
-    except pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise HTTPException(status_code=403, detail="Permission denied")
-
-
-    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "attributes")
-
-@app.post("/attributes", status_code=status.HTTP_201_CREATED)
-async def insert_atributes(attribute_data: BaseModels.AttributesInfo, token: str = Depends(oauth2_scheme)):
-
-    decode_token(token)
-    
-    try:
-        query = f"EXEC [InsertAttribute] @attribute_type = ?, @attribute_description = ?;"
-        cursor.execute(query, attribute_data.attribute_type, attribute_data.attribute_description)
-        conn.commit()
-    
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Attributes name is incorrect")
-
-    except pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise HTTPException(status_code=403, detail="Permission denied")
-    
-    return {"message": "Atribute inserted"}
-
-@app.put("/attributes/{id}", status_code=status.HTTP_200_OK)
-async def update_attributes(id: int, attribute_info: BaseModels.AttributesInfo, token: str = Depends(oauth2_scheme)):
-
-    decode_token(token)
-
-    try: 
-        query = f"EXEC [UpdateAttribute] @attribute_id = ?, @attribute_type = ?, @attribute_description = ?;"
-        cursor.execute(query, id, attribute_info.attribute_type, attribute_info.attribute_description)
-        conn.commit()
-
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Validation Error.")
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Something went wrong")
-
-    except pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise HTTPException(status_code=403, detail="Permission denied")
-
-    return {"message": "Atribute updated"}
-
-@app.delete("/atributes/{id}")
-async def delete_attributes(id: int, token: str = Depends(oauth2_scheme)):
-
-    decode_token(token)
-
-    try:
-        query = f"EXEC [DeleteAttribute] @attribute_id = ?;"
-        cursor.execute(query, id)
-        conn.commit()
-
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Attributes naming is incorrect")
-
-    except pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise HTTPException(status_code=403, detail="Permission denied")
-
-    return {"message": "Atribute deleted"}
-
-#end atributes
+#end attributes
 
 #start languages
 

@@ -26,6 +26,7 @@ conn, cursor = connection.conn, connection.cursor
 
 
 app = FastAPI()
+#other routers include
 app.include_router(login.login_router)
 app.include_router(attributes.attributes_router)
 

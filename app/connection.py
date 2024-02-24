@@ -13,5 +13,3 @@ conn = common.pyodbc.connect(connectionString)
 cursor = conn.cursor()
 
 print("Connection established")
-
-# return conn, cursor

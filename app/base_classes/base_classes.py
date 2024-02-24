@@ -92,3 +92,6 @@ class BaseModels:
         series_id: int = None
         film_id: int = None
         is_finished: bool
+
+    class RefreshtokenInfo(BaseModel):
+        refresh_token: str

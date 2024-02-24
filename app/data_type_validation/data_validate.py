@@ -22,7 +22,7 @@ class Correct_Data:
             data_list = data_dict.get("data", [])
             status = data_dict.get("status")
 
-            root = ET.Element("response")
+            root = ET.Element("root")
             status_element = ET.SubElement(root, "status")
             status_element.text = status
 
@@ -31,6 +31,8 @@ class Correct_Data:
                 for key, value in item.items():
                     ET.SubElement(xml_item, key).text = value
 
-            return ET.tostring(root, encoding="unicode")
+            xml_content = ET.tostring(root, encoding="unicode")
+            xml_declaration = r"<?xml version='1.0' encoding='utf-8'?>"
+            return xml_declaration + xml_content
 
         return data_dict

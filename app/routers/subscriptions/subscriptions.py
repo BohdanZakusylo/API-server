@@ -12,8 +12,6 @@ import app.connection as connection
 
 conn, cursor = connection.conn, connection.cursor
 
-attributes_router = APIRouter()
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 correct_data = Correct_Data()

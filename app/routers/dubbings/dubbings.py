@@ -1,29 +1,20 @@
-from app.common import (
-    APIRouter,
-    OAuth2PasswordBearer,
-    Correct_Data,
-    Header,
-    Depends,
-    status,
-    BaseModels,
-    decode_token
-)
+import app.common as common
 import app.connection as connection
 
 conn, cursor = connection.conn, connection.cursor
 
-attributes_router = APIRouter()
+attributes_router = common.APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = common.OAuth2PasswordBearer(tokenUrl="token")
 
-correct_data = Correct_Data()
+correct_data = common.Correct_Data()
 
-dubbings_router = APIRouter()
+dubbings_router = common.APIRouter()
 
 
 @dubbings_router.get("/dubbings")
-async def get_dubbings(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
-    decode_token(token)
+async def get_dubbings(accept: str = common.Header(default="application/json"), token: str = common.Depends(oauth2_scheme)):
+    common.decode_token(token)
 
     try:
         query = """EXECUTE SelectDubbing;"""
@@ -39,16 +30,16 @@ async def get_dubbings(accept: str = Header(default="application/json"), token: 
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept), "dubbing")
+    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept), "dubbing")
 
 
 @dubbings_router.get("/dubbings/{dubbing_id}")
-async def get_dubbings_by_id(dubbing_id: int, accept: str = Header(default="application/json"),
-                             token: str = Depends(oauth2_scheme)):
-    decode_token(token)
+async def get_dubbings_by_id(dubbing_id: int, accept: str = common.Header(default="application/json"),
+                             token: str = common.Depends(oauth2_scheme)):
+    common.decode_token(token)
 
     try:
         query = """EXECUTE SelectDubbingById @dubbing_id = ?;"""
@@ -64,40 +55,40 @@ async def get_dubbings_by_id(dubbing_id: int, accept: str = Header(default="appl
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept), "dubbing")
+    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept), "dubbing")
 
 
-@dubbings_router.post("/dubbings", status_code=status.HTTP_201_CREATED)
-async def post_dubbings(dubbing_info: BaseModels.DubbingInfo, token: str = Depends(oauth2_scheme)):
-    decode_token(token)
+@dubbings_router.post("/dubbings", status_code=common.status.HTTP_201_CREATED)
+async def post_dubbings(dubbing_info: common.BaseModels.DubbingInfo, token: str = common.Depends(oauth2_scheme)):
+    common.decode_token(token)
 
     if (dubbing_info.film_id is None and dubbing_info.episode_id is None) or (
             dubbing_info.film_id is not None and dubbing_info.episode_id is not None):
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise common.HTTPException(status_code=400, detail="Wrong input")
 
     try:
         query = """EXECUTE InsertDubbing @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
         cursor.execute(query, dubbing_info.film_id, dubbing_info.episode_id, dubbing_info.language_id,
                        dubbing_info.dubbing_company)
         conn.commit()
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Wrong input")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=400, detail="Wrong input")
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise common.HTTPException(status_code=400, detail="Wrong input")
 
     return "Dubbing added successfully."
 
 
-@dubbings_router.put("/dubbings/{dubbing_id}", status_code=status.HTTP_200_OK)
-async def put_dubbings(dubbing_id: int, dubbing_info: BaseModels.DubbingInfo, token: str = Depends(oauth2_scheme)):
-    decode_token(token)
+@dubbings_router.put("/dubbings/{dubbing_id}", status_code=common.status.HTTP_200_OK)
+async def put_dubbings(dubbing_id: int, dubbing_info: common.BaseModels.DubbingInfo, token: str = common.Depends(oauth2_scheme)):
+    common.decode_token(token)
 
     try:
         query = """EXECUTE UpdateDubbing @dubbing_id = ?, @film_id = ?, @episode_id = ?, @language_id = ?, @dubbing_company = ?;"""
@@ -105,34 +96,34 @@ async def put_dubbings(dubbing_id: int, dubbing_info: BaseModels.DubbingInfo, to
                        dubbing_info.dubbing_company)
         conn.commit()
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Validation Error.")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=400, detail="Validation Error.")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+        raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=422, detail="Unprocessable Entity")
+        raise common.HTTPException(status_code=422, detail="Unprocessable Entity")
 
     return f"Dubbing with id = {dubbing_id} edited successfully."
 
 
 @dubbings_router.delete("/dubbings/{dubbing_id}")
-async def delete_dubbings(dubbing_id: int, token: str = Depends(oauth2_scheme)):
-    decode_token(token)
+async def delete_dubbings(dubbing_id: int, token: str = common.Depends(oauth2_scheme)):
+    common.decode_token(token)
 
     try:
         query = """EXECUTE DeleteDubbing @dubbing_id = ?;"""
         cursor.execute(query, dubbing_id)
         conn.commit()
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise common.HTTPException(status_code=400, detail="Wrong input")
 
     return f"Dubbing with id = {dubbing_id} deleted successfully."

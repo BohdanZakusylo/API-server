@@ -1,28 +1,17 @@
-from app.common import (
-    APIRouter,
-    OAuth2PasswordBearer,
-    Correct_Data,
-    Header,
-    Depends,
-    status,
-    BaseModels,
-    decode_token
-)
+import app.common as common
 import app.connection as connection
 
 conn, cursor = connection.conn, connection.cursor
 
-attributes_router = APIRouter()
+oauth2_scheme = common.OAuth2PasswordBearer(tokenUrl="token")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+correct_data = common.Correct_Data()
 
-correct_data = Correct_Data()
-
-watchlists_router = APIRouter()
+watchlists_router = common.APIRouter()
 
 @watchlists_router.get("/watchlists")
-async def get_watchlists(accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
-    decode_token(token)
+async def get_watchlists(accept: str = common.Header(default="application/json"), token: str = common.Depends(oauth2_scheme)):
+    common.decode_token(token)
 
     try:
         query = """EXECUTE SelectWatchlist_Item;"""
@@ -38,14 +27,14 @@ async def get_watchlists(accept: str = Header(default="application/json"), token
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "watchlist_item")
+    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "watchlist_item")
 
 @watchlists_router.get("/watchlists/{watchlist_item_id}")
-async def get_watchlists_by_id(watchlist_item_id: int, accept: str = Header(default="application/json"), token: str = Depends(oauth2_scheme)):
-    decode_token(token)
+async def get_watchlists_by_id(watchlist_item_id: int, accept: str = common.Header(default="application/json"), token: str = common.Depends(oauth2_scheme)):
+    common.decode_token(token)
 
     try:
         query = """EXECUTE SelectWatchlist_ItemById @watchlist_item_id = ?;"""
@@ -61,74 +50,74 @@ async def get_watchlists_by_id(watchlist_item_id: int, accept: str = Header(defa
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
+    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "subscription")
 
-@watchlists_router.post("/watchlists", status_code=status.HTTP_201_CREATED)
-async def post_watchlist_item(watchlist_item_info: BaseModels.WatchlistItemInfo, token: str = Depends(oauth2_scheme)):
-    decode_token(token)
+@watchlists_router.post("/watchlists", status_code=common.status.HTTP_201_CREATED)
+async def post_watchlist_item(watchlist_item_info: common.BaseModels.WatchlistItemInfo, token: str = common.Depends(oauth2_scheme)):
+    common.decode_token(token)
 
     if (watchlist_item_info.film_id is None and watchlist_item_info.series_id is None) or (watchlist_item_info.film_id is not None and watchlist_item_info.series_id is not None):
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise common.HTTPException(status_code=400, detail="Wrong input")
 
     try:
         query = """EXECUTE InsertWatchlist_Item @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
         cursor.execute(query, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
         conn.commit()
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Wrong input")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=400, detail="Wrong input")
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise common.HTTPException(status_code=400, detail="Wrong input")
 
     return "Watchlist item added successfully."
 
-@watchlists_router.put("/watchlists/{watchlist_item_id}", status_code=status.HTTP_200_OK)
-async def put_watchlist_item(watchlist_item_id: int, watchlist_item_info: BaseModels.WatchlistItemInfo, token: str = Depends(oauth2_scheme)):
+@watchlists_router.put("/watchlists/{watchlist_item_id}", status_code=common.status.HTTP_200_OK)
+async def put_watchlist_item(watchlist_item_id: int, watchlist_item_info: common.BaseModels.WatchlistItemInfo, token: str = common.Depends(oauth2_scheme)):
 
     if (watchlist_item_info.film_id is None and watchlist_item_info.series_id is None) or (watchlist_item_info.film_id is not None and watchlist_item_info.series_id is not None):
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise common.HTTPException(status_code=400, detail="Wrong input")
 
-    decode_token(token)
+    common.decode_token(token)
 
     try:
         query = """EXECUTE UpdateWatchlist_Item @watchlist_item_id = ?, @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
         cursor.execute(query, watchlist_item_id, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
         conn.commit()
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=400, detail="Validation Error.")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=400, detail="Validation Error.")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+        raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=422, detail="Unprocessable Entity")
+        raise common.HTTPException(status_code=422, detail="Unprocessable Entity")
 
     return f"Watchlist item with id = {watchlist_item_id} edited successfully."
 
 @watchlists_router.delete("/watchlists/{watchlist_item_id}")
-async def delete_watchlist_item(watchlist_item_id: int, token: str = Depends(oauth2_scheme)):
-    decode_token(token)
+async def delete_watchlist_item(watchlist_item_id: int, token: str = common.Depends(oauth2_scheme)):
+    common.decode_token(token)
 
     try:
         query = """EXECUTE DeleteWatchlist_Item @watchlist_item_id = ?;"""
         cursor.execute(query, watchlist_item_id)
         conn.commit()
 
-    except pyodbc.IntegrityError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
-        raise HTTPException(status_code=400, detail="Wrong input")
+        raise common.HTTPException(status_code=400, detail="Wrong input")
 
     return f"Watchlist item with id = {watchlist_item_id} deleted successfully."

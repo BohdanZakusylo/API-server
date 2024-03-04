@@ -61,7 +61,6 @@ async def get_profile_by_id(id: int, accept: str = common.Header(default="applic
 @profiles_router.post("/profile", status_code=common.status.HTTP_201_CREATED)
 async def insert_profile(profile_info: common.BaseModels.ProfileInfo, token: str = common.Depends(oauth2_scheme)):
     common.decode_token(token)
-    
     try:
         query = f"EXEC [InsertProfile] @user_id = ?, @age = ?, @nick_name = ?, @profile_picture = ?;"
         cursor.execute(query, profile_info.user_id, profile_info.age, profile_info.nick_name, profile_info.profile_picture)
@@ -83,6 +82,8 @@ async def insert_profile(profile_info: common.BaseModels.ProfileInfo, token: str
 
 @profiles_router.put("/profile/{id}", status_code=common.status.HTTP_200_OK)
 async def update_profile(id: int, profile_info: common.BaseModels.ProfileInfo, token: str = common.Depends(oauth2_scheme)):
+    print(type(profile_info.age))
+    correct_data.validate_input_fields(profile_info, common.BaseModels.ProfileInfo)
     common.decode_token(token)
 
     try: 

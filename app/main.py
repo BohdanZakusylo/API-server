@@ -19,6 +19,14 @@ import app.routers.series.series as series
 import app.routers.subscriptions.subscriptions as subscriptions
 import app.routers.watchlists.watchlists as watchlists
 
+from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, constr
+
+
+
 correct_data = common.Correct_Data()
 
 oauth2_scheme = common.OAuth2PasswordBearer(tokenUrl="token")
@@ -45,6 +53,25 @@ app.include_router(dubbings.dubbings_router)
 app.include_router(series.series_router)
 app.include_router(subscriptions.subscriptions_router)
 app.include_router(watchlists.watchlists_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    details = exc.errors()
+    modified_details = []
+    for error in details:
+        modified_details.append(
+            {
+                "location": error["loc"],
+                "message": error["msg"],
+            }
+        )
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=jsonable_encoder({"detail": modified_details}),
+    )
+
+    
 
 
 @app.get("/")

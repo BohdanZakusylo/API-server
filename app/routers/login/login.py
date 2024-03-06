@@ -1,12 +1,11 @@
 import app.common as common
 import  app.connection as connection
-from fastapi import APIRouter
 
 oauth2_scheme = common.OAuth2PasswordBearer(tokenUrl="token")
 
 conn, cursor = connection.conn, connection.cursor
 
-login_router = APIRouter()
+login_router = common.APIRouter()
 
 @login_router.post("/registration", status_code=common.status.HTTP_201_CREATED)
 async def registration(registration_info: common.BaseModels.RegistrationIngfo):

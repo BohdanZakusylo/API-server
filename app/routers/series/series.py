@@ -2,10 +2,10 @@ import app.common as common
 import app.connection as connection
 
 conn, cursor = connection.conn, connection.cursor
-
 oauth2_scheme = common.OAuth2PasswordBearer(tokenUrl="token")
 
 correct_data = common.Correct_Data()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 series_router = common.APIRouter()
 

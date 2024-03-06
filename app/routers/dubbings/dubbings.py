@@ -1,4 +1,5 @@
 import app.common as common
+
 import app.connection as connection
 
 conn, cursor = connection.conn, connection.cursor
@@ -6,6 +7,7 @@ conn, cursor = connection.conn, connection.cursor
 attributes_router = common.APIRouter()
 
 oauth2_scheme = common.OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 correct_data = common.Correct_Data()
 

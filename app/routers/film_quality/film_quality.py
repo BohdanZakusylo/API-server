@@ -157,19 +157,28 @@ async def insert_film_quality(film_quality_info: common.BaseModels.FilmQualityIn
         query = f"EXEC [InsertFilmQuality] @film_id = ?, @quality_id = ?;"
         cursor.execute(query, film_quality_info.film_id, film_quality_info.quality_id)
         conn.commit()
+        query = """EXEC [GetLastItemIdOfTable] Film_Quality;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectFilmQualityByFilmId @film_id = ?;"""
+        cursor.execute(query, id)
 
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=400, detail="Invalid input")
-    
-    except Exception as e:
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/film-quality/{id}", "data": result_list}
+
+    except common.pyodbc.IntegrityError as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
-    return {"message": "Film quality inserted"}
+    return correct_data.return_correct_format(response, "application/json", "film-quality")
 
 
 @film_quality_router.put("/film-quality/{film_id}-{quality_id}", status_code=common.status.HTTP_200_OK)

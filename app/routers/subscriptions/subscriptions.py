@@ -5,7 +5,6 @@ conn, cursor = connection.conn, connection.cursor
 oauth2_scheme = common.OAuth2PasswordBearer(tokenUrl="token")
 
 correct_data = common.Correct_Data()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 subscriptions_router = common.APIRouter()
 
@@ -63,16 +62,28 @@ async def post_subscriptions(subscription_info: common.BaseModels.SubscriptionIn
         query = """EXECUTE InsertSubscription @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
         cursor.execute(query, subscription_info.user_id, subscription_info.type, subscription_info.price, subscription_info.start_date, subscription_info.expiration_date, subscription_info.is_discount)
         conn.commit()
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=400, detail="Wrong input")
+        query = """EXEC [GetLastItemIdOfTable] Subscriptions;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectSubscriptionById @subscription_id = ?;"""
+        cursor.execute(query, id)
 
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=403, detail="Permission denied")
+        rows = cursor.fetchall()
+        result_list = []
 
-    if cursor.rowcount <= 0:
-        raise common.HTTPException(status_code=400, detail="Wrong input")
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/subscription/{id}", "data": result_list}
 
-    return "Subscription added successfully."
+    except common.pyodbc.IntegrityError as e:
+        raise common.HTTPException(status_code=500, detail="Something went wrong")
+
+    return correct_data.return_correct_format(response, "application/json", "subscription")
 
 @subscriptions_router.put("/subscriptions/{subscription_id}", status_code=common.status.HTTP_200_OK)
 async def put_subscriptions(subscription_id: int, subscription_info: common.BaseModels.SubscriptionInfo, token: str = common.Depends(oauth2_scheme)):

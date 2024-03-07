@@ -7,7 +7,6 @@ conn, cursor = connection.conn, connection.cursor
 attributes_router = common.APIRouter()
 
 oauth2_scheme = common.OAuth2PasswordBearer(tokenUrl="token")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 correct_data = common.Correct_Data()
 
@@ -76,16 +75,28 @@ async def post_dubbings(dubbing_info: common.BaseModels.DubbingInfo, token: str 
         cursor.execute(query, dubbing_info.film_id, dubbing_info.episode_id, dubbing_info.language_id,
                        dubbing_info.dubbing_company)
         conn.commit()
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=400, detail="Wrong input")
+        query = """EXEC [GetLastItemIdOfTable] Dubbing;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectDubbingById @dubbing_id = ?;"""
+        cursor.execute(query, id)
+
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/dubbing/{id}", "data": result_list}
 
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    if cursor.rowcount <= 0:
-        raise common.HTTPException(status_code=400, detail="Wrong input")
-
-    return "Dubbing added successfully."
+    return correct_data.return_correct_format(response, "application/json", "dubbing")
 
 
 @dubbings_router.put("/dubbings/{dubbing_id}", status_code=common.status.HTTP_200_OK)

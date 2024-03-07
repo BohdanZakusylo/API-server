@@ -63,19 +63,28 @@ async def insert_quality(quality_info: common.BaseModels.QualityInfo, token: str
         query = f"EXEC [InsertQuality] @quality_type = ?;"
         cursor.execute(query, quality_info.quality_type)
         conn.commit()
-    
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=400, detail="Quality data is incorrect")
+        query = """EXEC [GetLastItemIdOfTable] Quality;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectQualityById @quality_id = ?;"""
+        cursor.execute(query, id)
 
-    except Exception as e:
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/quality/{id}", "data": result_list}
+
+    except common.pyodbc.IntegrityError as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-    
-    return {"message": "Quality inserted"}
+    return correct_data.return_correct_format(response, "application/json" , "quality")
 
 
 @quality_router.put("/quality/{id}", status_code=common.status.HTTP_200_OK)

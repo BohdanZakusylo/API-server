@@ -6,11 +6,10 @@ conn, cursor = connection.conn, connection.cursor
 oauth2_scheme = common.OAuth2PasswordBearer(tokenUrl="token")
 
 correct_data = common.Correct_Data()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 watchlists_router = common.APIRouter()
 
-@watchlists_router.get("/watchlists")
+@watchlists_router.get("/watchlist")
 async def get_watchlists(accept: str = common.Header(default="application/json"), token: str = common.Depends(oauth2_scheme)):
     common.decode_token(token)
 
@@ -33,7 +32,7 @@ async def get_watchlists(accept: str = common.Header(default="application/json")
 
     return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "watchlist_item")
 
-@watchlists_router.get("/watchlists/{watchlist_item_id}")
+@watchlists_router.get("/watchlist/{watchlist_item_id}")
 async def get_watchlists_by_id(watchlist_item_id: int, accept: str = common.Header(default="application/json"), token: str = common.Depends(oauth2_scheme)):
     common.decode_token(token)
 
@@ -54,9 +53,9 @@ async def get_watchlists_by_id(watchlist_item_id: int, accept: str = common.Head
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "subscription")
+    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "watchlist_item")
 
-@watchlists_router.post("/watchlists", status_code=common.status.HTTP_201_CREATED)
+@watchlists_router.post("/watchlist", status_code=common.status.HTTP_201_CREATED)
 async def post_watchlist_item(watchlist_item_info: common.BaseModels.WatchlistItemInfo, token: str = common.Depends(oauth2_scheme)):
     common.decode_token(token)
 
@@ -67,19 +66,30 @@ async def post_watchlist_item(watchlist_item_info: common.BaseModels.WatchlistIt
         query = """EXECUTE InsertWatchlist_Item @profile_id = ?, @series_id = ?, @film_id = ?, @is_finished = ?;"""
         cursor.execute(query, watchlist_item_info.profile_id, watchlist_item_info.series_id, watchlist_item_info.film_id, watchlist_item_info.is_finished)
         conn.commit()
+        query = """EXEC [GetLastItemIdOfTable] Watchlist_Item;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectWatchlist_ItemById @watchlist_item_id = ?;"""
+        cursor.execute(query, id)
 
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=400, detail="Wrong input")
+        rows = cursor.fetchall()
+        result_list = []
 
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=403, detail="Permission denied")
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/watchlist/{id}", "data": result_list}
 
-    if cursor.rowcount <= 0:
-        raise common.HTTPException(status_code=400, detail="Wrong input")
+    except common.pyodbc.IntegrityError as e:
+        raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    return "Watchlist item added successfully."
+    return correct_data.return_correct_format(response, "application/json" , "watchlist_item")
 
-@watchlists_router.put("/watchlists/{watchlist_item_id}", status_code=common.status.HTTP_200_OK)
+@watchlists_router.put("/watchlist/{watchlist_item_id}", status_code=common.status.HTTP_200_OK)
 async def put_watchlist_item(watchlist_item_id: int, watchlist_item_info: common.BaseModels.WatchlistItemInfo, token: str = common.Depends(oauth2_scheme)):
 
     if (watchlist_item_info.film_id is None and watchlist_item_info.series_id is None) or (watchlist_item_info.film_id is not None and watchlist_item_info.series_id is not None):
@@ -106,7 +116,7 @@ async def put_watchlist_item(watchlist_item_id: int, watchlist_item_info: common
 
     return f"Watchlist item with id = {watchlist_item_id} edited successfully."
 
-@watchlists_router.delete("/watchlists/{watchlist_item_id}")
+@watchlists_router.delete("/watchlist/{watchlist_item_id}")
 async def delete_watchlist_item(watchlist_item_id: int, token: str = common.Depends(oauth2_scheme)):
     common.decode_token(token)
 

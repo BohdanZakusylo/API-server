@@ -13,8 +13,6 @@ correct_data = common.Correct_Data()
 @login_router.post("/registration", status_code=common.status.HTTP_201_CREATED)
 async def registration(registration_info: common.BaseModels.RegistrationIngfo):
 
-    correct_data.validate_input_fields(registration_info, BaseModels.RegistrationIngfo)
-
     try:
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
         cursor.execute(query, registration_info.email, registration_info.password, registration_info.username, registration_info.age)

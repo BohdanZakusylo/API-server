@@ -65,19 +65,28 @@ async def insert_profile(profile_info: common.BaseModels.ProfileInfo, token: str
         query = f"EXEC [InsertProfile] @user_id = ?, @age = ?, @nick_name = ?, @profile_picture = ?;"
         cursor.execute(query, profile_info.user_id, profile_info.age, profile_info.nick_name, profile_info.profile_picture)
         conn.commit()
+        query = """EXEC [GetLastItemIdOfTable] Profile;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectProfileById @profile_id = ?;"""
+        cursor.execute(query, id)
 
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=400, detail="Profile data is incorrect")
-    
-    except Exception as e:
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/profile/{id}", "data": result_list}
+
+    except common.pyodbc.IntegrityError as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-    
-    return {"message": "Profile inserted"}
+    return correct_data.return_correct_format(response, "application/json" , "profile")
 
 
 @profiles_router.put("/profile/{id}", status_code=common.status.HTTP_200_OK)

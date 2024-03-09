@@ -66,16 +66,28 @@ async def insert_preferred_attribute(preferred_attribute_info: common.BaseModels
         query = f"EXEC [InsertPreferredAttribute] @profile_id = ?, @attribute_id = ?;"
         cursor.execute(query, preferred_attribute_info.profile_id, preferred_attribute_info.attribute_id)
         conn.commit()
+        query = """EXEC [GetLastItemIdOfTable] Preferred_Attribute;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectPreferredAttributeByProfileId @profile_id = ?;"""
+        cursor.execute(query, id)
 
-    except Exception as e:
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/preferred-attribute/{id}", "data": result_list}
+
+    except common.pyodbc.IntegrityError as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
-    return {"message": "Preferred attribute inserted"}
+    return correct_data.return_correct_format(response, "application/json" , "preferred-attribute")
 
 @preferred_attributes_router.put("/preferred-attribute/{profile_id}-{attribute_id}", status_code=common.status.HTTP_200_OK)
 async def update_preferred_attributes(profile_id: int, attribute_id: int, preferred_attribute_info: common.BaseModels.PreferredAttributeInfo, token: str = common.Depends(oauth2_scheme)):

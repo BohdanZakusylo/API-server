@@ -60,16 +60,28 @@ async def insert_atributes(attribute_data: common.BaseModels.AttributesInfo, tok
         query = f"EXEC [InsertAttribute] @attribute_type = ?, @attribute_description = ?;"
         cursor.execute(query, attribute_data.attribute_type, attribute_data.attribute_description)
         conn.commit()
-    
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=400, detail="Attributes name is incorrect")
+        query = """EXEC [GetLastItemIdOfTable] Attribute;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectAttributeById @attribute_id = ?;"""
+        cursor.execute(query, id)
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-    
-    return {"message": "Atribute inserted"}
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/attribute/{id}", "data": result_list}
+
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
+
+    return correct_data.return_correct_format(response, "application/json", "attribute")
 
 @attributes_router.put("/attributes/{id}", status_code=common.status.HTTP_200_OK)
 async def update_attributes(id: int, attribute_info: common.BaseModels.AttributesInfo, token: str = common.Depends(oauth2_scheme)):

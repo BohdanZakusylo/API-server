@@ -68,14 +68,28 @@ async def insert_languages(language_info: common.BaseModels.LanguageInfo, token:
         query = f"EXEC [InsertLanguage] @language_name = ?;"
         cursor.execute(query, language_info.language_name)
         conn.commit()
+        query = """EXEC [GetLastItemIdOfTable] Language;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectLanguageById @language_id = ?;"""
+        cursor.execute(query, id)
 
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=400, detail="Language name is incorrect")
-    
-    except Exception as e:
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/language/{id}", "data": result_list}
+
+    except common.pyodbc.IntegrityError as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    return {"message": "Language inserted"}
+    return correct_data.return_correct_format(response, "application/json" , "language")
 
 @languages_router.put("/language/{id}", status_code=common.status.HTTP_200_OK)
 async def update_languages(id: int, language_info: common.BaseModels.LanguageInfo, token: str = common.Depends(oauth2_scheme)):

@@ -64,14 +64,31 @@ async def insert_episode(episode_info: common.BaseModels.EpisodeInfo, token: str
         query = f"EXEC [InsertEpisode] @series_id = ?, @title = ?, @duration = ?, @episode_number = ?;"
         cursor.execute(query, episode_info.series_id, episode_info.title, episode_info.duration, episode_info.episode_number)
         conn.commit()
-    
+        query = """EXEC [GetLastItemIdOfTable] Episode;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectEpisodeById @episode_id = ?;"""
+        cursor.execute(query, id)
+
+        rows = cursor.fetchall()
+        result_list = []
+
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/episode/{id}", "data": result_list}
+
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=400, detail="Episode data is incorrect")
-    
+
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
-        
-    return {"message": "Episode inserted"}
+
+    return correct_data.return_correct_format(response, "application/json" , "episode")
 
 
 @episodes_router.put("/episode/{id}", status_code=common.status.HTTP_200_OK)

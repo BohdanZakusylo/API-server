@@ -93,19 +93,28 @@ async def insert_film_genre(film_genre_info: common.BaseModels.FilmGenreInfo, to
         query = f"EXEC [InsertFilmGenre] @film_id = ?, @attribute_id = ?;"
         cursor.execute(query, film_genre_info.film_id, film_genre_info.attribute_id)
         conn.commit()
+        query = """EXEC [GetLastItemIdOfTable] Film_Genre;"""
+        cursor.execute(query)
+        id = (cursor.fetchone())
+        id = id[0]
+        query = """EXECUTE SelectFilmGenreByFilmId @film_id = ?;"""
+        cursor.execute(query, id)
 
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=400, detail="Invalid input. Input should be integer.")
+        rows = cursor.fetchall()
+        result_list = []
 
-    except Exception as e:
+        for row in rows:
+            user_dict = {}
+            for idx, column in enumerate(cursor.description):
+                user_dict[column[0]] = str(row[idx])
+            result_list.append(user_dict)
+        
+        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/film-genre/{id}", "data": result_list}
+
+    except common.pyodbc.IntegrityError as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
-    return {"message": "Film genre inserted"}
+    return correct_data.return_correct_format(response, "application/json" , "film-genre")
 
 
 @film_genre_router.put("/film-genre/{film_id}-{attribute_id}", status_code=common.status.HTTP_200_OK)

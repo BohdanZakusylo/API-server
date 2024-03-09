@@ -75,11 +75,6 @@ async def insert_languages(language_info: common.BaseModels.LanguageInfo, token:
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
     return {"message": "Language inserted"}
 
 @languages_router.put("/language/{id}", status_code=common.status.HTTP_200_OK)

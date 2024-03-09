@@ -36,17 +36,3 @@ class Correct_Data:
             return xml_declaration + xml_content
 
         return data_dict
-    
-    def validate_input_fields(info, *args, **kwargs):
-        unpacked_base_fields = vars(args[1])
-        fields = unpacked_base_fields["__annotations__"]
-
-        args_dict = {attr: str(cls).split("'")[1] for attr, cls in fields.items()}
-        print(f"my {args[0]} and my {args_dict}")
-
-        for key, value in args_dict.items():
-            print(key, value)
-
-
-
-    

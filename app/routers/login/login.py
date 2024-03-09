@@ -1,5 +1,6 @@
 import app.common as common
 import  app.connection as connection
+from app.base_classes.base_classes import BaseModels
 
 oauth2_scheme = common.OAuth2PasswordBearer(tokenUrl="token")
 
@@ -7,8 +8,13 @@ conn, cursor = connection.conn, connection.cursor
 
 login_router = common.APIRouter()
 
+correct_data = common.Correct_Data()
+
 @login_router.post("/registration", status_code=common.status.HTTP_201_CREATED)
 async def registration(registration_info: common.BaseModels.RegistrationIngfo):
+
+    correct_data.validate_input_fields(registration_info, BaseModels.RegistrationIngfo)
+
     try:
         query = """EXECUTE [InsertUser] @email = ?, @password = ?, @username = ?, @age = ?;"""
         cursor.execute(query, registration_info.email, registration_info.password, registration_info.username, registration_info.age)
@@ -17,16 +23,11 @@ async def registration(registration_info: common.BaseModels.RegistrationIngfo):
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=400, detail="Username and email should be unique")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
-    except Exception as e:
+    except Exception:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
     if cursor.rowcount <= 0:
-        raise common.HTTPException(status_code=422, detail="Unprocessable Entity")
+        raise common.HTTPException(status_code=422, detail="Username and email should be unique")
 
     cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].email = '{registration_info.email}';")
 
@@ -40,7 +41,8 @@ async def registration(registration_info: common.BaseModels.RegistrationIngfo):
     conn.close()
 
     return {
-        "token": common.encode_token(id, registration_info.username)
+        "token": common.encode_token(id, registration_info.username), 
+        "refresh_token": common.encode_refresh_token(id, registration_info.username)
     }
 
 @login_router.get("/login")
@@ -53,9 +55,7 @@ async def login(login_info: common.BaseModels.LoginInfo):
         raise common.HTTPException(status_code=404, detail="User not found")
 
     except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     if not result:
         raise common.HTTPException(status_code=401, detail="Wrong email or password")
@@ -72,24 +72,6 @@ async def login(login_info: common.BaseModels.LoginInfo):
         response = {"data": result_list, "token": common.encode_token(int(result_list[0].get('user_id', 0)), login_info.email)}
         return response
 
-@login_router.get("/refresh-token")
-def get_refresh_token_by_token(token: str = common.Depends(oauth2_scheme)):
-    decoded_token = common.decode_token(token)
-    try:
-        cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
-
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
-    if cursor.fetchone() is None:
-        raise common.HTTPException(status_code=404, detail="User not found")
-
-    return {
-        "refresh_token": common.encode_refresh_token(decoded_token["id"], decoded_token["username"]),
-    }
-
 @login_router.get("/new-token")
 def get_token_by_refresh_token(refresh_token: common.BaseModels.RefreshtokenInfo):
     decoded_token = common.decode_refresh_token(refresh_token.refresh_token)
@@ -97,10 +79,8 @@ def get_token_by_refresh_token(refresh_token: common.BaseModels.RefreshtokenInfo
     try:
         cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.fetchone() is None:
         raise common.HTTPException(status_code=404, detail="User not found")

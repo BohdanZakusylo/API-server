@@ -5,6 +5,13 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from datetime import datetime
 from fastapi import HTTPException
+import random
+import string
+import app.common as common
+import app.connection as connection
+
+
+conn, cursor = connection.conn, connection.cursor
 
 load_dotenv(".env")
 
@@ -37,7 +44,7 @@ def decode_token(token: str):
              raise HTTPException(status_code=401, detail="token is expired")
         
         if "type" in decoded_token:
-            raise HTTPException(status_code=401, detail="resfresh token is not allowed")
+            raise HTTPException(status_code=403, detail="resfresh token is not allowed")
 
     except jwt.exceptions.DecodeError:
         raise HTTPException(status_code=401, detail="token is invalid")
@@ -47,11 +54,13 @@ def decode_token(token: str):
 
     return decoded_token
 
-def encode_refresh_token(id: int, name: str) -> str:
+def encode_refresh_token() -> str:
+    
+    length = 10
+    random_string = ''.join(random.choice(string.ascii_letters) for _ in range(length))
+    
     dict_to_encode = {
-        "id": id,
-        "username": name,
-        "type": "refresh",
+        "random_string": random_string,
         "expiration_time": datetime.utcnow().timestamp() + 3600 * 24 * 365
     }
 
@@ -71,8 +80,23 @@ def decode_refresh_token(token: str):
     
     except KeyError:
         raise HTTPException(status_code=401, detail="token is invalid")
+    
+    try:
+        cursor.execute(f"SELECT [user].user_id, [user].username FROM [user] WHERE [user].refresh_token = '{token}';")
 
-    return decoded_token    
+        results = cursor.fetchall()
+
+        for row in results:
+            user_id, name = row
+        
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=401, detail="Refresh token is incorrect")
+    
+    except TypeError:
+        raise common.HTTPException(status_code=401, detail="Refresh token does not exist")
+
+    return [user_id, name]
+    
 
 
 

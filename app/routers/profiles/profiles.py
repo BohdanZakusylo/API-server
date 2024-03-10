@@ -88,8 +88,6 @@ async def insert_profile(profile_info: common.BaseModels.ProfileInfo, token: str
 
 @profiles_router.put("/profile/{id}", status_code=common.status.HTTP_200_OK)
 async def update_profile(id: int, profile_info: common.BaseModels.ProfileInfo, token: str = common.Depends(oauth2_scheme)):
-    print(type(profile_info.age))
-    correct_data.validate_input_fields(profile_info, common.BaseModels.ProfileInfo)
     common.decode_token(token)
 
     try: 

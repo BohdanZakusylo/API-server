@@ -71,8 +71,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content=jsonable_encoder({"detail": modified_details}),
     )
 
-    
-
 
 @app.get("/")
 async def main_page():

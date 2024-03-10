@@ -29,7 +29,7 @@ async def get_series(accept: str = common.Header(default="application/json"), to
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "series")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series")
 
 @series_router.get("/series/{series_id}")
 async def get_series_by_id(series_id: int, accept: str = common.Header(default="application/json"), token: str = common.Depends(oauth2_scheme)):
@@ -52,7 +52,7 @@ async def get_series_by_id(series_id: int, accept: str = common.Header(default="
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "series")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series")
 
 @series_router.post("/series", status_code=common.status.HTTP_201_CREATED)
 async def post_series(series_info: common.BaseModels.SeriesInfo, token: str = common.Depends(oauth2_scheme)):

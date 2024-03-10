@@ -34,7 +34,7 @@ async def get_dubbings(accept: str = common.Header(default="application/json"), 
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept), "dubbing")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept), "dubbing")
 
 
 @dubbings_router.get("/dubbings/{dubbing_id}")
@@ -59,7 +59,7 @@ async def get_dubbings_by_id(dubbing_id: int, accept: str = common.Header(defaul
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept), "dubbing")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept), "dubbing")
 
 
 @dubbings_router.post("/dubbings", status_code=common.status.HTTP_201_CREATED)

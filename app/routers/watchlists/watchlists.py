@@ -9,7 +9,7 @@ correct_data = common.Correct_Data()
 
 watchlists_router = common.APIRouter()
 
-@watchlists_router.get("/watchlist")
+@watchlists_router.get("/watchlists")
 async def get_watchlists(accept: str = common.Header(default="application/json"), token: str = common.Depends(oauth2_scheme)):
     common.decode_token(token)
 
@@ -30,7 +30,7 @@ async def get_watchlists(accept: str = common.Header(default="application/json")
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "watchlist_item")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "watchlist_item")
 
 @watchlists_router.get("/watchlist/{watchlist_item_id}")
 async def get_watchlists_by_id(watchlist_item_id: int, accept: str = common.Header(default="application/json"), token: str = common.Depends(oauth2_scheme)):
@@ -53,7 +53,7 @@ async def get_watchlists_by_id(watchlist_item_id: int, accept: str = common.Head
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "watchlist_item")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "watchlist_item")
 
 @watchlists_router.post("/watchlist", status_code=common.status.HTTP_201_CREATED)
 async def post_watchlist_item(watchlist_item_info: common.BaseModels.WatchlistItemInfo, token: str = common.Depends(oauth2_scheme)):

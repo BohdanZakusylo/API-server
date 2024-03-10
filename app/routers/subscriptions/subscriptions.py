@@ -29,7 +29,7 @@ async def get_subscriptions(accept: str = common.Header(default="application/jso
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
-    return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "subscription")
+    return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
 @subscriptions_router.get("/subscriptions/{subscription_id}")
 async def get_subscriptions_by_id(subscription_id: int, accept: str = common.Header(default="application/json"), token: str = common.Depends(oauth2_scheme)):
@@ -49,7 +49,7 @@ async def get_subscriptions_by_id(subscription_id: int, accept: str = common.Hea
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-        return common.correct_data.return_correct_format(response, common.correct_data.validate_data_type(accept) , "subscription")
+        return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "subscription")
 
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
@@ -62,7 +62,7 @@ async def post_subscriptions(subscription_info: common.BaseModels.SubscriptionIn
         query = """EXECUTE InsertSubscription @user_id = ?, @type = ?, @price = ?, @start_date = ?, @expiration_date = ?, @is_discount = ?;"""
         cursor.execute(query, subscription_info.user_id, subscription_info.type, subscription_info.price, subscription_info.start_date, subscription_info.expiration_date, subscription_info.is_discount)
         conn.commit()
-        query = """EXEC [GetLastItemIdOfTable] Subscriptions;"""
+        query = """EXEC [GetLastItemIdOfTable] Subscription;"""
         cursor.execute(query)
         id = (cursor.fetchone())
         id = id[0]

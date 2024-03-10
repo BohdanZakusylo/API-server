@@ -115,9 +115,6 @@ async def put_dubbings(dubbing_id: int, dubbing_info: common.BaseModels.DubbingI
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=403, detail="Permission denied")
-
     if cursor.rowcount <= 0:
         raise common.HTTPException(status_code=422, detail="Unprocessable Entity")
 

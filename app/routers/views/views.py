@@ -45,11 +45,8 @@ async def get_view_episode_subtitle(accept: str = common.Header(default="applica
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        print(error_message)
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "episode-subtitle-view")
 
@@ -69,11 +66,8 @@ async def get_view_series_episodes(accept: str = common.Header(default="applicat
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        print(error_message)
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-episodes-view")
 
@@ -93,11 +87,8 @@ async def get_view_film_attribute(accept: str = common.Header(default="applicati
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        print(error_message)
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-attribute-view")
 
@@ -117,11 +108,8 @@ async def get_view_film_dubbing(accept: str = common.Header(default="application
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        print(error_message)
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-dubbing-view")
 
@@ -141,11 +129,8 @@ async def get_view_film_quality(accept: str = common.Header(default="application
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        print(error_message)
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-quality-view")
 
@@ -165,11 +150,8 @@ async def get_view_film_quality(accept: str = common.Header(default="application
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        print(error_message)
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-subtitle-view")
 
@@ -189,11 +171,8 @@ async def get_view_profile_watchlist_film(accept: str = common.Header(default="a
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        print(error_message)
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-watchlist-film-view")
 
@@ -213,11 +192,8 @@ async def get_view_profile_watchlist_series(accept: str = common.Header(default=
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        print(error_message)
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-watchlist-series-view")
 
@@ -239,10 +215,8 @@ async def get_view_profile_preferred_attribute(accept: str = common.Header(defau
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile_preferred_attribute-view")
 
@@ -262,11 +236,9 @@ async def get_view_series_genre(accept: str = common.Header(default="application
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
+    
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre-view")
 
 @views_router.get("/user-information")
@@ -285,10 +257,8 @@ async def get_view_user_information(accept: str = common.Header(default="applica
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user-information-view")
 
@@ -309,10 +279,8 @@ async def get_view_user_profile(accept: str = common.Header(default="application
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user-profile-view")
 
@@ -332,10 +300,8 @@ async def get_view_episode_view(accept: str = common.Header(default="application
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "view-episode-view")
 
@@ -355,9 +321,7 @@ async def get_view_film_view(accept: str = common.Header(default="application/js
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "view-film-view")

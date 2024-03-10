@@ -25,10 +25,8 @@ async def get_preferred_attribute(accept: str = common.Header(default="applicati
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "preferred-attribute")
 
@@ -51,10 +49,8 @@ async def get_preferred_attribute_by_profile_id(profile_id: int, accept: str = c
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "preferred-attribute")
 
@@ -104,10 +100,8 @@ async def update_preferred_attributes(profile_id: int, attribute_id: int, prefer
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Preferred attribute updated"}
 
@@ -123,9 +117,7 @@ async def delete_preferred_attribute(profile_id: int, attribute_id: int, token: 
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=400, detail="Preferred attributes naming is incorrect")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Preferred attribute deleted"}

@@ -51,9 +51,7 @@ async def get_film_by_id(id: int, accept: str = common.Header(default="applicati
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
+    except common.pyodbc.IntegrityError:
             raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film")
@@ -104,11 +102,6 @@ async def update_film(id: int, film_info: common.BaseModels.FilmInfo, token: str
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
     return {"message": "Film updated"}
 
 
@@ -123,10 +116,5 @@ async def delete_film(id: int, token: str = common.Depends(oauth2_scheme)):
 
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=400, detail="Film data is incorrect")
-
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Film deleted"}

@@ -62,10 +62,8 @@ def get_view_profile_film_overview_all(accept: str = common.Header(default="appl
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "film-quality")
 
@@ -89,10 +87,8 @@ async def get_film_quality_by_film_id(film_id: int, accept: str = common.Header(
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
@@ -115,10 +111,8 @@ async def get_film_quality_by_quality_id(quality_id: int, accept: str = common.H
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "profile-film-overview-view")
 
@@ -142,10 +136,8 @@ async def get_film_quality_by_quality_id(quality_id: int, accept: str = common.H
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "series-genre")
 
@@ -176,7 +168,7 @@ async def insert_film_quality(film_quality_info: common.BaseModels.FilmQualityIn
         response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/film-quality/{id}", "data": result_list}
 
     except common.pyodbc.IntegrityError as e:
-        raise common.HTTPException(status_code=500, detail="Something went wrong")
+        raise common.HTTPException(status_code=403, detail="Permission Denied")
 
     return correct_data.return_correct_format(response, "application/json", "film-quality")
 
@@ -196,11 +188,6 @@ async def update_film_quality(film_id: int, quality_id: int, film_quality_info: 
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
     return {"message:" "Film quality updated"}
 
 
@@ -216,9 +203,5 @@ async def delete_film_quality(film_id: int, quality_id: int, token: str = common
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=400, detail="Film quality naming is incorrect")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Film quality deleted"}

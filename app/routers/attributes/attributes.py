@@ -25,7 +25,7 @@ async def get_attributes(accept: str = common.Header(default="application/json")
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
+    except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "attributes")
@@ -46,7 +46,7 @@ async def get_attributes_by_id(id: int, accept: str = common.Header(default="app
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
+    except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "attributes")
@@ -99,9 +99,6 @@ async def update_attributes(id: int, attribute_info: common.BaseModels.Attribute
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError:
-        raise common.HTTPException(status_code=403, detail="Permission denied")
-
     return {"message": "Atribute updated"}
 
 @attributes_router.delete("/atributes/{id}")
@@ -116,10 +113,5 @@ async def delete_attributes(id: int, token: str =common.Depends(oauth2_scheme)):
 
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=400, detail="Attributes naming is incorrect")
-
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return {"message": "Atribute deleted"}

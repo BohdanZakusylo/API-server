@@ -77,10 +77,8 @@ async def get_film_genre_by_attribute_id(attribute_id: int, accept: str = common
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept), "film-genre")
 
@@ -133,11 +131,6 @@ async def update_preferred_attributes(film_id: int, attribute_id: int, film_genr
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
     return {"message": "Film genre updated"}
 
 
@@ -152,10 +145,5 @@ async def delete_preferred_attribute(film_id: int, attribute_id: int, token: str
 
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=400, detail="Preferred attributes naming is incorrect")
-
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
-
+    
     return {"message": "Film genre deleted"}

@@ -165,7 +165,7 @@ async def insert_film_quality(film_quality_info: common.BaseModels.FilmQualityIn
                 user_dict[column[0]] = str(row[idx])
             result_list.append(user_dict)
         
-        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/film-quality/{id}", "data": result_list}
+        response = {"Location": rf"http://{common.os.getenv('API_ADDRESS')}:8000/film-quality/{id}", "data": result_list}
 
     except common.pyodbc.IntegrityError as e:
         raise common.HTTPException(status_code=403, detail="Permission Denied")

@@ -107,7 +107,7 @@ async def insert_film_genre(film_genre_info: common.BaseModels.FilmGenreInfo, to
                 user_dict[column[0]] = str(row[idx])
             result_list.append(user_dict)
         
-        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/film-genre/{id}", "data": result_list}
+        response = {"Location": rf"http://{common.os.getenv('API_ADDRESS')}:8000/film-genre/{id}", "data": result_list}
 
     except common.pyodbc.IntegrityError as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")

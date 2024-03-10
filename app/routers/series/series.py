@@ -78,7 +78,7 @@ async def post_series(series_info: common.BaseModels.SeriesInfo, token: str = co
                 user_dict[column[0]] = str(row[idx])
             result_list.append(user_dict)
         
-        response = {"Location": rf"http://{common.os.getenv('SERVER')}:8000/series/{id}", "data": result_list}
+        response = {"Location": rf"http://{common.os.getenv('API_ADDRESS')}:8000/series/{id}", "data": result_list}
 
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")

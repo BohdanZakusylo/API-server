@@ -25,7 +25,6 @@ pycparser==2.21
 pydantic==2.5.2
 pydantic_core==2.14.5
 PyJWT==2.8.0
-pyodbc==5.0.1
 pytest==7.4.4
 python-dotenv==1.0.0
 requests==2.31.0

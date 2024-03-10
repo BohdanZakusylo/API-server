@@ -63,7 +63,6 @@ API_ADDRESS=`127.0.0.1`
 
 5) Certificates
 Put private and public keys into config/jwt
-Put cert and key into config/server-keys
 
 
 6) Install dependencies

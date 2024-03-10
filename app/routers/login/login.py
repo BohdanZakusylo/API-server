@@ -34,13 +34,23 @@ async def registration(registration_info: common.BaseModels.RegistrationIngfo):
 
     except TypeError:
         raise common.HTTPException(status_code=409, detail="User already exists")
+    
 
-    cursor.close()
-    conn.close()
+    encoded_refresh_token = common.encode_refresh_token()
+    print(encoded_refresh_token)
+
+    try:
+        query = """[UpdateRefreshToken] @user_id = ?, @refreshToken = ?;"""
+        cursor.execute(query, id, encoded_refresh_token)
+        conn.commit()
+        
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=500, detail="Try again later")    
+
 
     return {
         "token": common.encode_token(id, registration_info.username), 
-        "refresh_token": common.encode_refresh_token(id, registration_info.username)
+        "refresh_token": encoded_refresh_token
     }
 
 @login_router.get("/login")
@@ -69,10 +79,10 @@ async def login(login_info: common.BaseModels.LoginInfo):
 
 @login_router.get("/new-token")
 def get_token_by_refresh_token(refresh_token: common.BaseModels.RefreshtokenInfo):
-    decoded_token = common.decode_refresh_token(refresh_token.refresh_token)
+    user_id, name = common.decode_refresh_token(refresh_token.refresh_token)
 
     try:
-        cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {decoded_token['id']};")
+        cursor.execute(f"SELECT [user].user_id FROM [user] WHERE [user].user_id = {user_id};")
 
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=403, detail="Permission denied")
@@ -81,5 +91,5 @@ def get_token_by_refresh_token(refresh_token: common.BaseModels.RefreshtokenInfo
         raise common.HTTPException(status_code=404, detail="User not found")
 
     return {
-        "token": common.encode_token(decoded_token["id"], decoded_token["username"]),
+        "token": common.encode_token(user_id, name),
     }

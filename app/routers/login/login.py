@@ -35,7 +35,6 @@ async def registration(registration_info: common.BaseModels.RegistrationIngfo):
     except TypeError:
         raise common.HTTPException(status_code=409, detail="User already exists")
 
-    cursor.close()
     conn.close()
 
     return {

@@ -7,12 +7,19 @@
 ## Getting started
 
 1) Install Microsoft ODBC 18 Driver
+
 MacOS:
+
 `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"`
+
 `brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release`
+
 `brew update`
+
 `HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 mssql-tools18`
+
 Windows:
+
 Download the installer from here and run it:
 https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server?view=sql-server-ver16
 
@@ -63,6 +70,4 @@ Put cert and key into config/server-keys
 
 
 7) Run the program
-Normally, run api on hypercorn. Hypercorn is an ASGI server, that supports https protocol. However, django doesn't support https, so we had to roll back on http. For using web page, please run api on uvicorn. Command is bellow.
-`hypercorn app.main:app --keyfile config/server-keys/key.pem --certfile config/server-keys/cert.pem`
 `uvicorn app.main:app --reload`

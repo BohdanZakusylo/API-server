@@ -99,9 +99,6 @@ async def put_subscriptions(subscription_id: int, subscription_info: common.Base
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=403, detail="Permission denied")
-
     if cursor.rowcount <= 0:
         raise common.HTTPException(status_code=422, detail="Unprocessable Entity")
 

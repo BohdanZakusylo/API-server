@@ -108,9 +108,6 @@ async def put_watchlist_item(watchlist_item_id: int, watchlist_item_info: common
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
 
-    except common.pyodbc.IntegrityError:
-        raise common.HTTPException(status_code=403, detail="Permission denied")
-
     if cursor.rowcount <= 0:
         raise common.HTTPException(status_code=422, detail="Unprocessable Entity")
 

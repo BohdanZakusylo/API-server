@@ -58,6 +58,8 @@ PUBLIC_KEY=`config/jwt/public.pem`
 
 PRIVATE_KEY=`config/jwt/private.pem`
 
+API_ADDRESS=`127.0.0.1`
+
 
 5) Certificates
 Put private and public keys into config/jwt

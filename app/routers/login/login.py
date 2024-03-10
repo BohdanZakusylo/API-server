@@ -52,9 +52,6 @@ async def login(login_info: common.BaseModels.LoginInfo):
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=404, detail="User not found")
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        raise common.HTTPException(status_code=403, detail="Permission denied")
-
     if not result:
         raise common.HTTPException(status_code=401, detail="Wrong email or password")
     else:

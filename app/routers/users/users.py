@@ -53,10 +53,8 @@ async def get_users_by_id(id: int, accept: str = common.Header(default="applicat
             result_list.append(user_dict)
         response = {"status": "200 OK", "data": result_list}
 
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
+    except common.pyodbc.IntegrityError:
+        raise common.HTTPException(status_code=403, detail="Permission denied")
 
     return correct_data.return_correct_format(response, correct_data.validate_data_type(accept) , "user")
 
@@ -76,11 +74,6 @@ async def put_users(id: int, update_user_info: common.BaseModels.UpdateUserInfo,
 
     except Exception as e:
         raise common.HTTPException(status_code=500, detail="Something went wrong")
-
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
         raise common.HTTPException(status_code=422, detail="Unprocessable Entity")
@@ -104,11 +97,6 @@ async def delete_users(id: int, token: str = common.Depends(oauth2_scheme)):
 
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=400, detail="Email should be unique")
-
-    except common.pyodbc.ProgrammingError as programming_error:
-        error_code, error_message = programming_error.args
-        if error_code == '42000' and 'The EXECUTE permission was denied on the object' in error_message:
-            raise common.HTTPException(status_code=403, detail="Permission denied")
 
     if cursor.rowcount <= 0:
         raise common.HTTPException(status_code=404, detail="User not found")

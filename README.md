@@ -1,38 +1,43 @@
-# API-Server
+#API-Server
 
-## Getting Started:
-### Prerequisites:
-- Python (version 3.9 or higher)
+## Prerequisites:
+- Python 3.9 or higher
 - pip
 
-### Setup the virtual environment
+## Getting started
 
+1) Install Microsoft ODBC 18 Driver
+MacOS:
+`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"`
+`brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release`
+`brew update`
+`HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 mssql-tools18`
+Windows:
+Download the installer from here and run it:
+https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server?view=sql-server-ver16
+
+Go to the project folder
+
+2) Setup the virtual environment
 `python -m venv .venv`
 
-## For Mac
-### Activate the virtual environment
-`source .venv/bin/activate`   
-`touch .env`  
+3) Activate the virtual environment
+Windows:
+`.venv\Scripts\activate`
+Mac:
+`source .venv/bin/activate`
+
+4) Environment variables
+Navigate to the project folder
+Create a .env file
+Copy the contents from .env.dist into .env
+
+Here is an example of a command for Mac:
+
+`touch .env`
 `cp .env.dist .env`
 
-## For Windows
-### Activate the virtual environment
-`.venv\Scripts\activate`
-`make the .env file and copy everything from .env.dist to .env`
-`paste all the information in .env file that was provided`
-Put private.pem and public.pem into `config/jwt/`
-
-### Install Dependencies:
-`pip install -r requirements.txt`
-
-Put certificate and key files into config/server-keys/
-
-Run the server:
-Normally, run api on hypercorn. Hypercorn is an ASGI server, that supports https protocol. However, django doesn't support https, so we had to roll back on http. For using web page, please run api on uvicorn. Command is bellow.
-`hypercorn app.main:app --keyfile config/server-keys/key.pem --certfile config/server-keys/cert.pem`
-`uvicorn app.main:app --reload`
-
-## Setup .env file
+Fill out the .env
 
 SERVER=`host` (for localhost, use `127.0.0.1`)
 
@@ -45,3 +50,19 @@ PASSWORD=`password`
 PUBLIC_KEY=`config/jwt/public.pem`
 
 PRIVATE_KEY=`config/jwt/private.pem`
+
+
+5) Certificates
+Put private and public keys into config/jwt
+Put cert and key into config/server-keys
+
+
+6) Install dependencies
+`pip install --no-binary :all: pyodbc`
+`pip install -r requirements.txt`
+
+
+7) Run the program
+Normally, run api on hypercorn. Hypercorn is an ASGI server, that supports https protocol. However, django doesn't support https, so we had to roll back on http. For using web page, please run api on uvicorn. Command is bellow.
+`hypercorn app.main:app --keyfile config/server-keys/key.pem --certfile config/server-keys/cert.pem`
+`uvicorn app.main:app --reload`

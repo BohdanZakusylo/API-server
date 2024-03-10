@@ -46,8 +46,7 @@ async def registration(registration_info: common.BaseModels.RegistrationIngfo):
         
     except common.pyodbc.IntegrityError:
         raise common.HTTPException(status_code=500, detail="Try again later")    
-
-
+        
     return {
         "token": common.encode_token(id, registration_info.username), 
         "refresh_token": encoded_refresh_token
